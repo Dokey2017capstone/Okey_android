@@ -40,7 +40,7 @@ public class LatinKeyboardView extends KeyboardView {
 	@Override
 	public boolean onTouchEvent(MotionEvent me) {
 		// TODO Auto-generated method stub
-/*		
+/*
 		int action = me.getAction();
 		
 		switch (action) {
@@ -55,7 +55,7 @@ public class LatinKeyboardView extends KeyboardView {
 			break;
 		}
 		return true;
-*/		
+*/
 		return super.onTouchEvent(me);
 	}
 

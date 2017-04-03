@@ -22,6 +22,7 @@ import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
+import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.View;
@@ -88,6 +89,7 @@ public class CandidateView extends View {
         mColorNormal = r.getColor(R.color.candidate_normal);
         mColorRecommended = r.getColor(R.color.candidate_recommended);
         mColorOther = r.getColor(R.color.candidate_other);
+        //candidate 높이
         mVerticalPadding = r.getDimensionPixelSize(R.dimen.candidate_vertical_padding);
         
         mPaint = new Paint();
@@ -106,7 +108,7 @@ public class CandidateView extends View {
                 if (sx < 0) {
                     sx = 0;
                 }
-                if (sx + getWidth() > mTotalWidth) {                    
+                if (sx + getWidth() > mTotalWidth) {
                     sx -= distanceX;
                 }
                 mTargetScrollX = sx;
@@ -146,6 +148,7 @@ public class CandidateView extends View {
                 + padding.top + padding.bottom;
         
         // Maximum possible width and desired height
+        //사이즈 설정(위로 밀려남)
         setMeasuredDimension(measuredWidth,
                 resolveSize(desiredHeight, heightMeasureSpec));
     }
@@ -249,6 +252,7 @@ public class CandidateView extends View {
         scrollTo(0, 0);
         mTargetScrollX = 0;
         // Compute the total width
+        Log.d("하","굿");
         onDraw(null);
         invalidate();
         requestLayout();

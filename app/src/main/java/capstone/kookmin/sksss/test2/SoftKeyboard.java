@@ -76,6 +76,8 @@ public class SoftKeyboard extends InputMethodService
 
     private LatinKeyboard mSymbolsKeyboard;
     private LatinKeyboard mSymbolsShiftedKeyboard;
+    private LatinKeyboard mSymbolsEnKeyboard;
+    private LatinKeyboard mSymbolsEnShiftedKeyboard;
     private LatinKeyboard mQwertyKeyboard;
 
     private Keyboard mHangulKeyboard; // Hangul Code
@@ -112,7 +114,9 @@ public class SoftKeyboard extends InputMethodService
         }
         mQwertyKeyboard = new LatinKeyboard(this, R.xml.qwerty);
         mSymbolsKeyboard = new LatinKeyboard(this, R.xml.symbols);
+        mSymbolsEnKeyboard = new LatinKeyboard(this, R.xml.symbols_en);
         mSymbolsShiftedKeyboard = new LatinKeyboard(this, R.xml.symbols_shift);
+        mSymbolsEnShiftedKeyboard = new LatinKeyboard(this, R.xml.symbols_en_shift);
         mHangulKeyboard = new HangulKeyboard(this, R.xml.hangul);
         mHangulShiftedKeyboard = new HangulKeyboard(this, R.xml.hangul_shift);
         mSejongKeyboard = new SejongKeyboard(this, R.xml.sejong);
@@ -137,7 +141,7 @@ public class SoftKeyboard extends InputMethodService
      * Called by the framework when your view for showing candidates needs to
      * be generated, like {@link #onCreateInputView}.
      */
-    //candidate 보여주기 위함인듯?
+    //candidate 생성
     @Override public View onCreateCandidatesView() {
         mCandidateView = new CandidateView(this);
         mCandidateView.setService(this);
@@ -650,14 +654,15 @@ public class SoftKeyboard extends InputMethodService
             startActivity(i);
 
             return;
-        } else if (primaryCode == Keyboard.KEYCODE_MODE_CHANGE
+        } else if ((primaryCode == Keyboard.KEYCODE_MODE_CHANGE || primaryCode == -7)
                 && mInputView != null) {
             Keyboard current = mInputView.getKeyboard();
-            if (current == mSymbolsKeyboard || current == mSymbolsShiftedKeyboard) {
+            if (current == mSymbolsEnKeyboard || current == mSymbolsEnShiftedKeyboard) {
                 current = mQwertyKeyboard;
             }
-            // Hangul Start Code
-            else if (current == mQwertyKeyboard) {
+            // Hangul Start Code//////////////////////////////////////////
+            else if ((current == mQwertyKeyboard && primaryCode == Keyboard.KEYCODE_MODE_CHANGE)
+                    || current == mSymbolsKeyboard || current == mSymbolsShiftedKeyboard) {
                 if (mComposing.length() > 0) {
                     commitTyped(getCurrentInputConnection());
                 }
@@ -665,14 +670,24 @@ public class SoftKeyboard extends InputMethodService
                 clearHangul();
                 current = mHangulKeyboard;
             }
+            else if(current == mQwertyKeyboard && primaryCode == -7){
+                if (mComposing.length() > 0) {
+                    commitTyped(getCurrentInputConnection());
+                }
+                current = mSymbolsEnKeyboard;
+            }
             // Hangul End Code
-            else if (current == mHangulKeyboard) {
+            else if (current == mHangulKeyboard || current == mHangulShiftedKeyboard) {
                 if (mComposing.length() > 0) {
                     getCurrentInputConnection().commitText(mComposing, mComposing.length());
                     mComposing.setLength(0);
                 }
-                clearSejong();
-                current = mSejongKeyboard;
+//                clearSejong();
+//                current = mSejongKeyboard;
+                if(primaryCode == Keyboard.KEYCODE_MODE_CHANGE)
+                    current = mQwertyKeyboard;
+                else
+                    current = mSymbolsKeyboard;
             }
             else {
                 if (mComposing.length() > 0) {
@@ -684,7 +699,7 @@ public class SoftKeyboard extends InputMethodService
                 current = mSymbolsKeyboard;
             }
             mInputView.setKeyboard(current);
-            if (current == mSymbolsKeyboard) {
+            if (current == mSymbolsKeyboard || current == mSymbolsEnKeyboard || current == mHangulKeyboard || current == mQwertyKeyboard) {
                 current.setShifted(false);
             }
 
@@ -733,7 +748,7 @@ public class SoftKeyboard extends InputMethodService
         if (!mCompletionOn) {
             if (mComposing.length() > 0) {
                 ArrayList<String> list = new ArrayList<String>();
-                list.add(mComposing.toString());
+                list.add(mComposing.toString());    /////////////////
                 setSuggestions(list, true, true);
             } else {
                 setSuggestions(null, false, false);
@@ -741,6 +756,7 @@ public class SoftKeyboard extends InputMethodService
         }
     }
 
+    //자동 완성 설정
     public void setSuggestions(List<String> suggestions, boolean completions,
                                boolean typedWordValid) {
         if (suggestions != null && suggestions.size() > 0) {
@@ -748,6 +764,7 @@ public class SoftKeyboard extends InputMethodService
         } else if (isExtractViewShown()) {
             setCandidatesViewShown(true);
         }
+        //단어 추천 갱신
         if (mCandidateView != null) {
             mCandidateView.setSuggestions(suggestions, completions, typedWordValid);
         }
@@ -800,10 +817,20 @@ public class SoftKeyboard extends InputMethodService
             mSymbolsKeyboard.setShifted(true);
             mInputView.setKeyboard(mSymbolsShiftedKeyboard);
             mSymbolsShiftedKeyboard.setShifted(true);
-        } else if (currentKeyboard == mSymbolsShiftedKeyboard) {
+        }else if (currentKeyboard == mSymbolsEnKeyboard) {
+            mSymbolsEnKeyboard.setShifted(true);
+            mInputView.setKeyboard(mSymbolsEnShiftedKeyboard);
+            mSymbolsEnShiftedKeyboard.setShifted(true);
+        }
+        else if (currentKeyboard == mSymbolsShiftedKeyboard) {
             mSymbolsShiftedKeyboard.setShifted(false);
             mInputView.setKeyboard(mSymbolsKeyboard);
             mSymbolsKeyboard.setShifted(false);
+        }
+        else if (currentKeyboard == mSymbolsEnShiftedKeyboard) {
+            mSymbolsEnShiftedKeyboard.setShifted(false);
+            mInputView.setKeyboard(mSymbolsEnKeyboard);
+            mSymbolsEnKeyboard.setShifted(false);
         }
     }
 
