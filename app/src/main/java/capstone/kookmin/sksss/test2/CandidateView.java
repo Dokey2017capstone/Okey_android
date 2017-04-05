@@ -83,21 +83,21 @@ public class CandidateView extends View {
         });
 
         Resources r = context.getResources();
-        
+
         setBackgroundColor(r.getColor(R.color.candidate_background));
-        
+
         mColorNormal = r.getColor(R.color.candidate_normal);
         mColorRecommended = r.getColor(R.color.candidate_recommended);
         mColorOther = r.getColor(R.color.candidate_other);
         //candidate 높이
         mVerticalPadding = r.getDimensionPixelSize(R.dimen.candidate_vertical_padding);
-        
+
         mPaint = new Paint();
         mPaint.setColor(mColorNormal);
         mPaint.setAntiAlias(true);
         mPaint.setTextSize(r.getDimensionPixelSize(R.dimen.candidate_font_height));
         mPaint.setStrokeWidth(0);
-        
+
         mGestureDetector = new GestureDetector(new GestureDetector.SimpleOnGestureListener() {
             @Override
             public boolean onScroll(MotionEvent e1, MotionEvent e2,
@@ -149,8 +149,8 @@ public class CandidateView extends View {
         
         // Maximum possible width and desired height
         //사이즈 설정(위로 밀려남)
-        setMeasuredDimension(measuredWidth,
-                resolveSize(desiredHeight, heightMeasureSpec));
+        setMeasuredDimension(measuredWidth,60);
+//                resolveSize(desiredHeight, heightMeasureSpec));
     }
 
     /**
@@ -241,7 +241,7 @@ public class CandidateView extends View {
         scrollTo(sx, getScrollY());
         invalidate();
     }
-    
+    //단어 갱신
     public void setSuggestions(List<String> suggestions, boolean completions,
             boolean typedWordValid) {
         clear();
@@ -253,9 +253,9 @@ public class CandidateView extends View {
         mTargetScrollX = 0;
         // Compute the total width
         Log.d("하","굿");
-        onDraw(null);
-        invalidate();
-        requestLayout();
+//        onDraw(null);
+//        invalidate();
+//        requestLayout();
     }
 
     public void clear() {

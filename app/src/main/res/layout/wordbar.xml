@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="fill_parent"
+    android:id="@+id/wordLayout"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:background="@color/candidate_background">
+
+    <Button
+        android:id="@+id/word1"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text = "하이"/>
+
+    <Button
+        android:id="@+id/word2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text = "하이"/>
+
+    <Button
+        android:id="@+id/word3"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text = "하이"/>
+
+    <Button
+        android:id="@+id/changeBt"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="교체" />
+
+</LinearLayout>

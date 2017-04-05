@@ -19,6 +19,8 @@
 
 package capstone.kookmin.sksss.test2;
 
+import android.app.ActionBar;
+import android.content.Context;
 import android.content.Intent;
 import android.graphics.Rect;
 import android.inputmethodservice.InputMethodService;
@@ -29,11 +31,17 @@ import android.text.method.MetaKeyKeyListener;
 import android.util.Log;
 import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
+import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
+import android.view.WindowManager;
 import android.view.inputmethod.CompletionInfo;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputMethodManager;
+import android.widget.Button;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 
 import java.net.URI;
 import java.util.ArrayList;
@@ -63,6 +71,7 @@ public class SoftKeyboard extends InputMethodService
 
     private KeyboardView mInputView;
     private CandidateView mCandidateView;
+    private TextView mTextView;
     private CompletionInfo[] mCompletions;
 
     //수정 가능한 String
@@ -134,6 +143,8 @@ public class SoftKeyboard extends InputMethodService
                 R.layout.input, null);
         mInputView.setOnKeyboardActionListener(this);
         mInputView.setKeyboard(mQwertyKeyboard);
+        //mCandidateView = new CandidateView(this);////////////////////////////////
+        //setCandidatesViewShown(true);
         return mInputView;
     }
 
@@ -141,11 +152,41 @@ public class SoftKeyboard extends InputMethodService
      * Called by the framework when your view for showing candidates needs to
      * be generated, like {@link #onCreateInputView}.
      */
+    View wordBar, correctionBar;
+    LayoutInflater li;
+
+    Button.OnClickListener mOnClickListner = new View.OnClickListener(){
+
+        @Override
+        public void onClick(View v) {
+            Log.d("aa","bb");
+            switch (v.getId()){
+                case R.id.changeBt:
+                    setCandidatesView(correctionBar);
+                    break;
+                case R.id.changeBt2:
+                    setCandidatesView(wordBar);
+                    break;
+            }
+        }
+    };
+
     //candidate 생성
     @Override public View onCreateCandidatesView() {
-        mCandidateView = new CandidateView(this);
-        mCandidateView.setService(this);
-        return mCandidateView;
+        li = (LayoutInflater) getApplicationContext().getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+        wordBar = li.inflate(R.layout.wordbar, null);
+        correctionBar = li.inflate(R.layout.correctionbar, null);
+        //LinearLayout ll = (LinearLayout) wordBar.findViewById(R.id.wordLayout);
+        Button changeBtn = (Button) wordBar.findViewById(R.id.changeBt);
+        Button changeBtn2 = (Button) correctionBar.findViewById(R.id.changeBt2);
+        changeBtn.setOnClickListener(mOnClickListner);
+        changeBtn2.setOnClickListener(mOnClickListner);
+        setCandidatesViewShown(true);
+        return wordBar;
+//        mCandidateView = new CandidateView(this);
+//        mCandidateView.setService(this);
+//        mTextView = (TextView) getLayoutInflater().inflate(R.layout.wordbar, null);
+//        return mTextView;//mCandidateView;
     }
 
     /**

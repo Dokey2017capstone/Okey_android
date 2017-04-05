@@ -7,8 +7,4 @@
     android:layout_alignParentBottom="true"
     android:keyPreviewLayout="@layout/preview">
 
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="20px"/>
-
 </android.inputmethodservice.KeyboardView>
