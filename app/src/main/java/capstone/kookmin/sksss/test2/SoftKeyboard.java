@@ -20,6 +20,7 @@
 package capstone.kookmin.sksss.test2;
 
 import android.app.ActionBar;
+import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Rect;
@@ -27,25 +28,51 @@ import android.inputmethodservice.InputMethodService;
 import android.inputmethodservice.Keyboard;
 import android.inputmethodservice.KeyboardView;
 import android.net.Uri;
+import android.os.Handler;
+import android.os.Message;
+import android.support.v7.view.menu.MenuView;
 import android.text.method.MetaKeyKeyListener;
 import android.util.Log;
+import android.util.StringBuilderPrinter;
 import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.view.inputmethod.CompletionInfo;
+import android.view.inputmethod.CorrectionInfo;
 import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.ExtractedTextRequest;
 import android.view.inputmethod.InputConnection;
+import android.view.inputmethod.InputMethod;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.PopupMenu;
 import android.widget.TextView;
+import android.widget.Toast;
 
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
+import java.lang.ref.WeakReference;
+import java.lang.reflect.Array;
+import java.net.Socket;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
+import android.text.Editable;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 
 /**
@@ -68,14 +95,25 @@ public class SoftKeyboard extends InputMethodService
      * that are primarily intended to be used for on-screen text entry.
      */
     static final boolean PROCESS_HARD_KEYS = true;
+    static final int correctWord_MAX = 3;   //하나의 오타 단어에 대한 추천 단어의 최대 개수
+    static final int MAX_TEXT = 10000;  //최대 텍스트 길이
+
+    //서버에서 받은 데이터 종류에 대한 메시지 핸들러
+    static final int MSG_REQUEST_RECEIVE = 0;
 
     private KeyboardView mInputView;
-    private CandidateView mCandidateView;
-    private TextView mTextView;
+//    private CandidateView mCandidateView;
+//    private TextView mTextView;
     private CompletionInfo[] mCompletions;
 
     //수정 가능한 String
     private StringBuilder mComposing = new StringBuilder();
+    private StringBuilder test = new StringBuilder();/////////////////////////
+    private StringBuilder test2 = new StringBuilder();
+    private List<String[]> textListSeparated = new ArrayList<String[]>();   //서버에서 받은 오타 단어별 수정 리스트 저장
+    private List<correctionButtonInform> cBtnList = new ArrayList<correctionButtonInform>();    //단어 수정 버튼 클릭시 수행되는 과정에서 필요한 정보를 담은 클래스
+    private List<int[]> correctionTextPosition = new ArrayList<int[]>();
+
     private boolean mPredictionOn;
     private boolean mCompletionOn;
     private int mLastDisplayWidth;
@@ -97,6 +135,13 @@ public class SoftKeyboard extends InputMethodService
 
     private String mWordSeparators;
 
+    //서버 관련
+    private static final String ip = "13.112.247.215";
+    private static final int port = 8100;
+    private MessegeHandler mHandler = new MessegeHandler(this);
+    private TcpClient tcp = new TcpClient(ip, port, mHandler);
+    Thread t;
+
     /**
      * Main initialization of the input method component.  Be sure to call
      * to super class.
@@ -104,6 +149,7 @@ public class SoftKeyboard extends InputMethodService
     @Override public void onCreate() {
         super.onCreate();
         mWordSeparators = getResources().getString(R.string.word_separators);
+        //tcp.start();
     }
 
     /**
@@ -143,7 +189,7 @@ public class SoftKeyboard extends InputMethodService
                 R.layout.input, null);
         mInputView.setOnKeyboardActionListener(this);
         mInputView.setKeyboard(mQwertyKeyboard);
-        //mCandidateView = new CandidateView(this);////////////////////////////////
+        //mCandidateView = new CandidateView(this);
         //setCandidatesViewShown(true);
         return mInputView;
     }
@@ -152,24 +198,129 @@ public class SoftKeyboard extends InputMethodService
      * Called by the framework when your view for showing candidates needs to
      * be generated, like {@link #onCreateInputView}.
      */
+    //자동완성, 오타수정 뷰 관련 변수
     View wordBar, correctionBar;
     LayoutInflater li;
+    Button button1;
+    Button button2;
+    Button button3;
+    Button[] correctionButton = new Button[3];  //수정 버튼
 
+    //자동완성/오타수정 뷰 관련 클릭 리스너
     Button.OnClickListener mOnClickListner = new View.OnClickListener(){
 
         @Override
         public void onClick(View v) {
             Log.d("aa","bb");
+            Button bt;
+            InputConnection ic;
+            Keyboard current = mInputView.getKeyboard();
             switch (v.getId()){
-                case R.id.changeBt:
-                    setCandidatesView(correctionBar);
-                    break;
+                    ///////////
+//                    test.setLength(0);
+//                    test.append("a");
+//                    test2.setLength(0);
+//                    test2.append("c");
+//                    CorrectionInfo a =  new CorrectionInfo(2,"a","b");
+////                    getCurrentInputConnection().beginBatchEdit();
+////                    getCurrentInputConnection().setSelection(2,3);
+////                    getCurrentInputConnection().commitText("a",1);
+//                    boolean s = getCurrentInputConnection().commitCorrection(a);
+////                    getCurrentInputConnection().endBatchEdit();
+//                    //getCurrentInputConnection().commitText("a",0);
+//                    Log.d("boolean?",String.valueOf(s));
+//                    Log.d(a.getOldText().toString(),a.getNewText().toString());
+                    ///////////
                 case R.id.changeBt2:
                     setCandidatesView(wordBar);
                     break;
+                //자동완성 클릭
+                case R.id.word1:case R.id.word2:case R.id.word3:
+                    bt = (Button)v;
+                    mComposing.setLength(0);
+                    mComposing.append(bt.getText() + " ");
+                    ////////////////////
+//                    Log.d("isOK?","onClickListner");
+//                    //서버에 클릭한 버튼의 내용을 전송
+//                    if(tcp != null &&   tcp.isSocketOn()) {
+//                        Log.d("in","socket");
+//                        tcp.sendData((String) bt.getText());
+//                    }
+                    ////////////////
+                    getCurrentInputConnection().setComposingText(mComposing, 1);
+                    mComposing.setLength(0);
+                    getCurrentInputConnection().finishComposingText();
+                    if (current == mHangulKeyboard || current == mHangulShiftedKeyboard ) {
+                        clearHangul();
+                    }
+                    break;
+                case R.id.cword1:case R.id.cword2:case R.id.cword3:
+                    int popUpPosition;
+                    bt = (Button)v;
+                    PopupMenu cPopup = new PopupMenu(getApplicationContext(), bt);
+                    cPopup.getMenuInflater().inflate(R.menu.correctionpopup, cPopup.getMenu());
+                    cPopup.setOnMenuItemClickListener(mOnMenuItemClickListener);
+                    cPopup.getMenu().clear();
+                    if(v.getId() == R.id.cword1)
+                        popUpPosition = 0;
+                    else if(v.getId() == R.id.cword2)
+                        popUpPosition = 1;
+                    else
+                        popUpPosition = 2;
+                    if(cBtnList.size()>popUpPosition)
+                    {
+                        for(int i=0; i<cBtnList.get(popUpPosition).getCorrectionWord().length; i++)
+                        {
+                            cPopup.getMenu().add(cBtnList.get(popUpPosition).getCorrectionWord()[i]);
+                        }
+                    }
+                    cPopup.show();
+                    break;
+                //오타수정 바 혹은 갱신 버튼 클릭시
+                case R.id.changeBt:
+                    setCandidatesView(correctionBar);
+                case R.id.renew:
+                    ic = getCurrentInputConnection();
+
+                    //서버로 보낼 오타 수정 메시지 작성 및 송신
+                    if(!tcp.getIsRunning())
+                        TcpOpen(tcp);
+                    String text = ic.getExtractedText(new ExtractedTextRequest(), 0).text.toString();
+                    String sendJson = makeJsonToReq(false, true, null, setTextListForCorrect(text));
+                    Log.d("text??", sendJson);
+                    tcp.sendData(sendJson);
+                    break;
+
+//                isOkUpdateSelection = false;
             }
         }
     };
+
+    PopupMenu.OnMenuItemClickListener mOnMenuItemClickListener = new PopupMenu.OnMenuItemClickListener() {
+        @Override
+        public boolean onMenuItemClick(MenuItem item) {
+            /////////// 수정 이벤트
+            return false;
+        }
+    };
+
+    //자동완성 버튼 갱신
+    void setCandidateButton(String[] str)
+    {
+        button1.setText(str[0]);
+        button2.setText(str[1]);
+        button3.setText(str[2]);
+    }
+
+    void updateCandidateButton()//////////////////
+    {
+        String[] a = new String[3];
+        a[0] = mComposing.toString();
+        a[1] = a[0];
+        a[2] = a[1];
+        Log.d("z","a"+a[0]+"z");
+        setCandidateButton(a);
+    }
 
     //candidate 생성
     @Override public View onCreateCandidatesView() {
@@ -179,8 +330,23 @@ public class SoftKeyboard extends InputMethodService
         //LinearLayout ll = (LinearLayout) wordBar.findViewById(R.id.wordLayout);
         Button changeBtn = (Button) wordBar.findViewById(R.id.changeBt);
         Button changeBtn2 = (Button) correctionBar.findViewById(R.id.changeBt2);
+        Button renewBtn = (Button) correctionBar.findViewById(R.id.renew);
+        button1 = (Button) wordBar.findViewById(R.id.word1);
+        button2 = (Button) wordBar.findViewById(R.id.word2);
+        button3 = (Button) wordBar.findViewById(R.id.word3);
+        correctionButton[0] = (Button) correctionBar.findViewById(R.id.cword1);
+        correctionButton[1] = (Button) correctionBar.findViewById(R.id.cword2);
+        correctionButton[2] = (Button) correctionBar.findViewById(R.id.cword3);
+
+        button1.setOnClickListener(mOnClickListner);
+        button2.setOnClickListener(mOnClickListner);
+        button3.setOnClickListener(mOnClickListner);
+        for(int i = 0; i< correctionButton.length; i++)
+            correctionButton[i].setOnClickListener(mOnClickListner);
+
         changeBtn.setOnClickListener(mOnClickListner);
         changeBtn2.setOnClickListener(mOnClickListner);
+        renewBtn.setOnClickListener(mOnClickListner);
         setCandidatesViewShown(true);
         return wordBar;
 //        mCandidateView = new CandidateView(this);
@@ -195,21 +361,22 @@ public class SoftKeyboard extends InputMethodService
      * bound to the client, and are now receiving all of the detailed information
      * about the target of our edits.
      */
-    //입력메소드 초기화??(각 값들 초기화인듯)
+    //텍스트에 대한 입력 준비(입력 텍스트 보일시)
     @Override public void onStartInput(EditorInfo attribute, boolean restarting) {
         super.onStartInput(attribute, restarting);
-/*        
-        Log.i("Hangul", "onStartInput");
-*/
+
+        Log.i("keyboardzz", "onStartInput");
+
         //스택들 초기화,,
         clearHangul();
-        clearSejong();
+//        clearSejong();
         previousCurPos = -1;
 
         // Reset our state.  We want to do this even if restarting, because
         // the underlying state of the text editor could have changed in any way.
         mComposing.setLength(0);
-        updateCandidates();
+//        updateCandidates();
+//        updateCandidateButton();// 후보자 추천 설정
 
         //쉬프트 클리어
         if (!restarting) {
@@ -218,8 +385,8 @@ public class SoftKeyboard extends InputMethodService
         }
 
         mPredictionOn = true;
-        mCompletionOn = false;
-        mCompletions = null;
+//        mCompletionOn = false;
+//        mCompletions = null;
 
         // We are now going to initialize our state based on the type of
         // text being edited.
@@ -279,8 +446,8 @@ public class SoftKeyboard extends InputMethodService
                     // own it displaying its own UI.
                     //이것이 자동 완성 텍스트보기 인 경우 예측이 표시되지 않고 대신 편집기가 자체 텍스트를 제공 할 수 있도록 허용합니다.
                     //우리는 전체 화면 모드 일 때만 편집기 후보를 보여 주며, 그렇지 않은 경우 자체 UI를 표시합니다.
-                    mPredictionOn = false;
-                    mCompletionOn = isFullscreenMode();
+                    //mPredictionOn = false;
+                    //mCompletionOn = isFullscreenMode();
                 }
 
                 // We also want to look at the current state of the editor
@@ -302,6 +469,15 @@ public class SoftKeyboard extends InputMethodService
         // says it will do.
         mCurKeyboard.setImeOptions(getResources(), attribute.imeOptions);
 
+//        if(socket!= null) {
+//            try {
+//                setSocket(ip, port); //소켓 설정
+//            } catch (IOException e) {
+//                e.printStackTrace();
+//            }
+//            if (checkNetworkRead.getState() != Thread.State.RUNNABLE)
+//                checkNetworkRead.start();
+//        }
     }
 
     /**
@@ -311,6 +487,7 @@ public class SoftKeyboard extends InputMethodService
     //유저가 필드의 에딧팅을 끝내면 불려짐. 이를 이용하여 상태를 리셋할수있다.
     @Override public void onFinishInput() {
         super.onFinishInput();
+        Log.d("keyboardzz","onFinishInput");
 
         // Clear current composing text and candidates.
         //현재 작성중인 텍스트 및 후보를 지웁니다.
@@ -323,24 +500,43 @@ public class SoftKeyboard extends InputMethodService
         // its window.
         //사용자가 창 하단에 텍스트를 입력하는 경우 기본 응용 프로그램을 팝업 혹은 팝다운을
         //피하기 위해 특정 편집기에서 입력을 마칠 때만 후보자 창을 숨 깁니다.
-        setCandidatesViewShown(false);
+        //setCandidatesViewShown(false);
 
         //키보드 뷰 닫기
         mCurKeyboard = mQwertyKeyboard;
         if (mInputView != null) {
             mInputView.closing();
         }
+
+        //서버와의 소켓 닫기
+        Log.d("tcp","close");
+        TcpClose(tcp);
+        Log.d("boolean",tcp.getIsRunning() + "");
     }
 
     //편집기에서 입력 시작시 호출
     @Override public void onStartInputView(EditorInfo attribute, boolean restarting) {
+        Log.d("keyboardzz","onStartInputView");
         super.onStartInputView(attribute, restarting);
         // Apply the selected keyboard to the input view.
         //선택한 키보드를 입력보기에 적용하십시오.
         mInputView.setKeyboard(mCurKeyboard);
         mInputView.closing();
+
+        //서버와 소켓 오픈 및 통신 시작
+        Log.d("tcp","open");
+        TcpOpen(tcp);
+        Log.d("boolean",tcp.getIsRunning() + "");
     }
 
+    @Override
+    public void onComputeInsets(InputMethodService.Insets outInsets){
+        super.onComputeInsets(outInsets);
+        if(!isFullscreenMode())
+        {
+            outInsets.contentTopInsets = outInsets.visibleTopInsets;
+        }
+    }
 
     /**
      * Deal with the editor reporting movement of its cursor.
@@ -375,7 +571,7 @@ public class SoftKeyboard extends InputMethodService
             if (mComposing.length() > 0 && (newSelStart != candidatesEnd
                     || newSelEnd != candidatesEnd)) {
                 mComposing.setLength(0);
-                updateCandidates();
+                //updateCandidates();
                 InputConnection ic = getCurrentInputConnection();
                 if (ic != null) {
                     ic.finishComposingText();
@@ -397,6 +593,8 @@ public class SoftKeyboard extends InputMethodService
             }
             isOkUpdateSelection = true;
         }
+
+        updateCandidateButton();// 후보자 추천 설정
     }
 
     /**
@@ -567,7 +765,7 @@ public class SoftKeyboard extends InputMethodService
     private void commitTyped(InputConnection inputConnection) {
         if (mComposing.length() > 0) {
             //텍스트 입력
-            inputConnection.commitText(mComposing, mComposing.length());
+            inputConnection.commitText(mComposing, 1);// mComposing.length());
             mComposing.setLength(0);
             updateCandidates();
         }
@@ -643,7 +841,7 @@ public class SoftKeyboard extends InputMethodService
             Keyboard current = mInputView.getKeyboard();
 
             if (mComposing.length() > 0) {
-                commitTyped(getCurrentInputConnection());
+                commitTyped(getCurrentInputConnection());//////////////////////////
             }
 
             if (current == mHangulKeyboard || current == mHangulShiftedKeyboard ) {
@@ -701,7 +899,7 @@ public class SoftKeyboard extends InputMethodService
             if (current == mSymbolsEnKeyboard || current == mSymbolsEnShiftedKeyboard) {
                 current = mQwertyKeyboard;
             }
-            // Hangul Start Code//////////////////////////////////////////
+            // Hangul Start Code
             else if ((current == mQwertyKeyboard && primaryCode == Keyboard.KEYCODE_MODE_CHANGE)
                     || current == mSymbolsKeyboard || current == mSymbolsShiftedKeyboard) {
                 if (mComposing.length() > 0) {
@@ -720,7 +918,7 @@ public class SoftKeyboard extends InputMethodService
             // Hangul End Code
             else if (current == mHangulKeyboard || current == mHangulShiftedKeyboard) {
                 if (mComposing.length() > 0) {
-                    getCurrentInputConnection().commitText(mComposing, mComposing.length());
+                    getCurrentInputConnection().commitText(mComposing, 1);//mComposing.length());
                     mComposing.setLength(0);
                 }
 //                clearSejong();
@@ -732,7 +930,7 @@ public class SoftKeyboard extends InputMethodService
             }
             else {
                 if (mComposing.length() > 0) {
-                    getCurrentInputConnection().commitText(mComposing, mComposing.length());
+                    getCurrentInputConnection().commitText(mComposing, 1);//mComposing.length());
                     mComposing.setLength(0);
                 }
                 Log.d("dz","1");
@@ -766,6 +964,7 @@ public class SoftKeyboard extends InputMethodService
             }
             // Hangul End Code
         }
+        updateCandidateButton();// 후보자 추천 설정
     }
 
     public void onText(CharSequence text) {
@@ -789,7 +988,7 @@ public class SoftKeyboard extends InputMethodService
         if (!mCompletionOn) {
             if (mComposing.length() > 0) {
                 ArrayList<String> list = new ArrayList<String>();
-                list.add(mComposing.toString());    /////////////////
+                list.add(mComposing.toString());
                 setSuggestions(list, true, true);
             } else {
                 setSuggestions(null, false, false);
@@ -806,9 +1005,9 @@ public class SoftKeyboard extends InputMethodService
             setCandidatesViewShown(true);
         }
         //단어 추천 갱신
-        if (mCandidateView != null) {
-            mCandidateView.setSuggestions(suggestions, completions, typedWordValid);
-        }
+//        if (mCandidateView != null) {
+//            mCandidateView.setSuggestions(suggestions, completions, typedWordValid);
+//        }
     }
 
     private void handleBackspace() {
@@ -987,11 +1186,11 @@ public class SoftKeyboard extends InputMethodService
         else if (hCursor == HCURSOR_ADD) {
             mHCursorState = HCURSOR_ADD;
             Log.i("Hangul", "HCURSOR_ADD");
-            if (mComposing.length() > 0) {
-                mComposing.setLength(0);
-                getCurrentInputConnection().finishComposingText();
-                isOkUpdateSelection = false;
-            }
+//            if (mComposing.length() > 0) {
+//                mComposing.setLength(0);
+//                getCurrentInputConnection().finishComposingText();
+//                isOkUpdateSelection = false;
+//            }
 
             mComposing.append((char)newHangulChar);
             Log.d("length",mComposing.toString());
@@ -999,7 +1198,7 @@ public class SoftKeyboard extends InputMethodService
         }
         else if (hCursor == HCURSOR_UPDATE) {
             Log.i("Hangul", "HCURSOR_UPDATE");
-            mComposing.setCharAt(0, (char)newHangulChar);
+            mComposing.setCharAt(mComposing.length()-1, (char)newHangulChar);
             getCurrentInputConnection().setComposingText(mComposing, 1);
             mHCursorState = HCURSOR_UPDATE;
             Log.d("length", mComposing.toString());
@@ -1025,30 +1224,48 @@ public class SoftKeyboard extends InputMethodService
 
                 switch(mHangulState) {
                     case H_STATE_0:
-                        keyDownUp(KeyEvent.KEYCODE_DEL);
+//                        if(mComposing.length()>0) {
+//                           // mComposing.setLength(mComposing.length() - 1);
+//                            getCurrentInputConnection().setComposingText(mComposing, 1);
+//                        }
+                        if(mComposing.length()>0) {
+                            mComposing.delete(mComposing.length()-1,mComposing.length());
+                            getCurrentInputConnection().setComposingText(mComposing, 1);
+                        }
+                        else{
+                            getCurrentInputConnection().commitText("", 0);
+                            clearHangul();
+                            keyDownUp(KeyEvent.KEYCODE_DEL);
+                        }
                         break;
                     case H_STATE_1: // �ʼ�
 //					keyDownUp(KeyEvent.KEYCODE_DEL);
-                        mComposing.setLength(0);
-                        getCurrentInputConnection().commitText("", 0);
+                        mComposing.setLength(mComposing.length()-1);//
+                        getCurrentInputConnection().setComposingText(mComposing, 1);
                         Log.d("dz","7");
-                        clearHangul();
+                        if(mComposing.length() == 0) {
+                            getCurrentInputConnection().commitText("", 0);
+                            clearHangul();
+                        }
                         mHangulState = H_STATE_0;
                         break;
-                    case H_STATE_2: // �ʼ�(������)
+                    case H_STATE_2:
                         newHangulChar = 0x3131 + mHangulKeyStack[0];
                         hangulSendKey(newHangulChar, HCURSOR_UPDATE);
                         mHangulKeyStack[1] = 0;
                         mHangulJamoStack[0] = mHangulKeyStack[0];
-                        mHangulState = H_STATE_1; // goto �ʼ�
+                        mHangulState = H_STATE_1;
                         break;
-                    case H_STATE_3: // �߼�(�ܸ���,������)
+                    case H_STATE_3:
                         if (mHangulKeyStack[3] == 0) {
 //						keyDownUp(KeyEvent.KEYCODE_DEL);
-                            mComposing.setLength(0);
-                            getCurrentInputConnection().commitText("", 0);
+                            mComposing.setLength(mComposing.length()-1);
+                            getCurrentInputConnection().setComposingText(mComposing, 1);
                             Log.d("dz","6");
-                            clearHangul();
+                            if(mComposing.length() == 0) {
+                                getCurrentInputConnection().commitText("", 0);
+                                clearHangul();
+                            }
                             mHangulState = H_STATE_0;
                         }
                         else {
@@ -1746,7 +1963,7 @@ public class SoftKeyboard extends InputMethodService
                             mHangulJamoStack[0] = newHangulKeyIdx;
 //	                    hangulSendKey(-1);
                             hangulSendKey(newHangulChar, HCURSOR_UPDATE);   //자음조합으로 커밋
-                            mHangulState = H_STATE_2; // goto �ʼ�(������)
+                            mHangulState = H_STATE_2;
                         }
                         else { // 자음조합이 없을경우
 
@@ -1869,7 +2086,7 @@ public class SoftKeyboard extends InputMethodService
                     break;
                 case H_STATE_4:
                     Log.i("SoftKey", "HAN_STATE 4");
-                    if (hangulKeyIdx < 30) { // if 자음
+                    if (hangulKeyIdx < 30 && hangulKeyIdx != 7 && hangulKeyIdx != 18 && hangulKeyIdx != 24) { // if 자음
                         mHangulKeyStack[4] = hangulKeyIdx;
                         mHangulJamoStack[2] = hangulKeyIdx;
 //	                hangulSendKey(-1);
@@ -1890,11 +2107,33 @@ public class SoftKeyboard extends InputMethodService
 //                            mHangulJamoStack[2] = 0;
 //                            newHangulChar = 0x3131 + hangulKeyIdx;
 //                            hangulSendKey(newHangulChar,HCURSOR_ADD);
-//                            mHangulState = H_STATE_1; // goto �ʼ�
+//                            mHangulState = H_STATE_1;
 //                        }
 //                        else {
-                            mHangulState = H_STATE_5; // goto �ʼ�,�߼�,����
+                            mHangulState = H_STATE_5;
 //                        }
+                    }
+                    else if(hangulKeyIdx < 30)
+                    {
+                        // cursor error trick start
+                        cho_idx = h_chosung_idx[mHangulJamoStack[0]];
+                        jung_idx = mHangulJamoStack[1] - 30;
+                        newHangulChar = 0xAC00 + ((cho_idx * 21 * 28) + (jung_idx * 28));
+                        hangulSendKey(newHangulChar,HCURSOR_UPDATE);
+                        // trick end
+
+
+                        mHangulKeyStack[0] = hangulKeyIdx;
+                        mHangulKeyStack[1] = 0;
+                        mHangulKeyStack[2] = 0;
+                        mHangulKeyStack[3] = 0;
+                        mHangulKeyStack[4] = 0;
+                        mHangulJamoStack[0] = hangulKeyIdx;
+                        mHangulJamoStack[1] = 0;
+                        mHangulJamoStack[2] = 0;
+                        newHangulChar = 0x3131 + hangulKeyIdx;
+                        hangulSendKey(newHangulChar,HCURSOR_ADD);
+                        mHangulState = H_STATE_1;
                     }
                     else { // if 모음
                         if (mHangulKeyStack[3] == 0) {  //조합 모음이 아직 안나온 경우
@@ -1928,7 +2167,7 @@ public class SoftKeyboard extends InputMethodService
                                 mHangulJamoStack[0] = 0;
                                 mHangulKeyStack[2] = hangulKeyIdx;
                                 mHangulJamoStack[1] = hangulKeyIdx;
-                                mHangulState = H_STATE_3; // goto �߼�
+                                mHangulState = H_STATE_3;
                             }
                         }
                         else {//조합모음이 이미 나온 경우
@@ -1969,7 +2208,7 @@ public class SoftKeyboard extends InputMethodService
                             jong_idx = h_jongsung_idx[mHangulJamoStack[2]+1];;
                             newHangulChar = 0xAC00 + ((cho_idx * 21 * 28) + (jung_idx * 28) + jong_idx);
                             hangulSendKey(newHangulChar,HCURSOR_UPDATE);
-                            mHangulState = H_STATE_6; // goto  �ʼ�,�߼�,����(������)
+                            mHangulState = H_STATE_6;
                         }
                         else { // if 자음조합이 없을 경우
 
@@ -1991,8 +2230,8 @@ public class SoftKeyboard extends InputMethodService
                             mHangulJamoStack[1] = 0;
                             mHangulJamoStack[2] = 0;
                             newHangulChar = 0x3131 + hangulKeyIdx;
-                            hangulSendKey(newHangulChar,HCURSOR_ADD);///////////////////////////////
-                            mHangulState = H_STATE_1; // goto �ʼ�
+                            hangulSendKey(newHangulChar,HCURSOR_ADD);
+                            mHangulState = H_STATE_1;
                         }
                     }
                     else { // if 모음
@@ -2020,12 +2259,12 @@ public class SoftKeyboard extends InputMethodService
                         hangulSendKey(newHangulChar, HCURSOR_ADD);
 
                         // Log.i("SoftKey", "--- Goto HAN_STATE 4");
-                        mHangulState = H_STATE_4; // goto �ʼ�,�߼�
+                        mHangulState = H_STATE_4;
                     }
                     break;
-                case H_STATE_6: // �ʼ�,�߼�,����(������)
+                case H_STATE_6:
                     Log.i("SoftKey", "HAN_STATE 6");
-                    if (hangulKeyIdx < 30) { // if ����
+                    if (hangulKeyIdx < 30) {
 
                         // cursor error trick start
                         cho_idx = h_chosung_idx[mHangulJamoStack[0]];
@@ -2048,9 +2287,9 @@ public class SoftKeyboard extends InputMethodService
                         newHangulChar = 0x3131 + hangulKeyIdx;
                         hangulSendKey(newHangulChar,HCURSOR_ADD);
 
-                        mHangulState = H_STATE_1; // goto �ʼ�
+                        mHangulState = H_STATE_1;
                     }
-                    else { // if ����
+                    else {
 //	            	hangulSendKey(-1);
                         mHangulJamoStack[2] = mHangulKeyStack[4];
 
@@ -2147,9 +2386,9 @@ public class SoftKeyboard extends InputMethodService
                 && index < mCompletions.length) {
             CompletionInfo ci = mCompletions[index];
             getCurrentInputConnection().commitCompletion(ci);
-            if (mCandidateView != null) {
-                mCandidateView.clear();
-            }
+//            if (mCandidateView != null) {
+//                mCandidateView.clear();
+//            }
             updateShiftKeyState(getCurrentInputEditorInfo());
         } else if (mComposing.length() > 0) {
             // If we were generating candidate suggestions for the current
@@ -2160,9 +2399,21 @@ public class SoftKeyboard extends InputMethodService
     }
 
     public void swipeRight() {
+        /*
         if (mCompletionOn) {
             pickDefaultCandidate();
         }
+        */
+        InputConnection ic = getCurrentInputConnection();
+
+        //서버로 보낼 오타 수정 메시지 작성 및 송신
+        if(!tcp.getIsRunning())
+            TcpOpen(tcp);
+        String text = ic.getExtractedText(new ExtractedTextRequest(), 0).text.toString();
+        String sendJson = makeJsonToReq(true, false, setTextListForCorrect(text), null);
+        Log.d("text??", sendJson);
+        tcp.sendData(sendJson);
+        ////////////
     }
 
     public void swipeLeft() {
@@ -2180,5 +2431,236 @@ public class SoftKeyboard extends InputMethodService
     }
 
     public void onRelease(int primaryCode) {
+    }
+
+//    //소켓 연결
+//    public void setSocket(String ip, int port) throws IOException {
+//        try {
+//            socket = new Socket(ip, port);
+//            networkWriter = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
+//            networkReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+//        } catch (IOException e) {
+//            Log.w("Error", "Network");
+//            e.printStackTrace();
+//        }
+//    }
+
+    //서버로 보낼 json 데이터 제작 함수
+    public String makeJsonToReq(boolean isSpacing, boolean isModified, String spacingData, String modifiedData)
+    {
+        String msg = "{\"request\":[\"";
+        if(isSpacing)
+            msg += "spacing\"";
+        if(isModified) {
+            if(isSpacing)
+                msg += ",";
+            msg += "modified\"";
+        }
+        msg += "]";
+        if(isSpacing) {
+            msg += ",\"spacingData\":\"" + spacingData + "\"";
+        }
+        if(isModified){
+            msg += ",\"modifiedData\":\"" + modifiedData + "\"";
+        }
+        msg += "}";
+
+        return msg;
+    }
+
+    //오타 검사를 위해 서버로 문자열을 보내기 위한 준비(textListSeparated 리스트에 splitWord로 분해한 어절을 저장하고, 분해한 어절을 반환)
+    private String setTextListForCorrect(String text)
+    {
+//        String strToServer = "";
+        int pos = -1;
+        boolean isContinueChar = false;
+//        textListSeparated.clear();
+        correctionTextPosition.clear();
+        //문자열을 나눌 단어의 기준(정규식)(\n.,;:!?()[]{}<>")
+        String splitWord = "(\\u0020|\\.|\\,|\\;|\\:|\\!|\\?|\\n|\\(|\\)|\\[|\\]|\\{|\\}|\\<|\\>|\")+";
+
+        String rePlaceStr = text.replaceAll(splitWord," ");
+        rePlaceStr = rePlaceStr.concat(" ");
+
+        int wordStartPos = 0;
+        int wordFinishPos = 0;
+        int tmp[] = new int[2];
+        //각 어절의 위치를 correctionTextPosition에 저장
+        while (pos<rePlaceStr.length()-1)
+        {
+            pos++;
+            //Log.d("pos",String.valueOf(pos));
+            if(!isContinueChar && rePlaceStr.charAt(pos)!=' ')
+            {
+                wordStartPos = pos;
+                isContinueChar = true;
+            }
+            else if(!isContinueChar)
+            {
+                continue;
+            }
+            else if(rePlaceStr.charAt(pos)!=' ')
+            {
+                continue;
+            }
+            else
+            {
+                wordFinishPos = pos-1;
+                isContinueChar = false;
+                tmp[0] = wordStartPos;
+                tmp[1] = wordFinishPos;
+                correctionTextPosition.add(tmp.clone());
+            }
+        }
+//        //split한 어절들을 textListSeparated에 삽입
+//        for(int i=0; i<stringList.length; i++) {
+//            String[] tmp = new String[correctWord_MAX];
+//            tmp[0] = stringList[i];
+//            textListSeparated.add(tmp);
+//            strToServer = strToServer.concat(stringList[i]+" ");
+//        }
+//        Log.d("strToServer",strToServer);
+        for(int i = 0; i<correctionTextPosition.size(); i++)
+        {
+            Log.d("array", String.valueOf(correctionTextPosition.get(i)[0]) + "," + String.valueOf(correctionTextPosition.get(i)[1]));
+        }
+        return rePlaceStr;
+    }
+
+    //softKeyboard에서 처리하는 메시지핸들러
+    public void handleMessage(Message msg){
+        JSONObject obj;
+        JSONArray responseType;
+        JSONArray correctionList;
+        InputConnection ic;
+        String spacingData;
+        JSONObject modifiedData;
+
+        switch (msg.what)
+        {
+            case MSG_REQUEST_RECEIVE:
+                try {
+                    ic = getCurrentInputConnection();
+                    obj = new JSONObject((String) msg.obj);
+                    //obj = new JSONObject("{\"response\" : [\"modified\"],\"modified\" : {\"나는\" : [\"0\",\"ㅋㅋ\"],\"김정민\" : [\"1\",\"ㅎㅎ\"]}}");
+                    //Log.d("닿?","나?");
+                    responseType = (JSONArray) obj.getJSONArray("response");
+                    //responseType 별로 처리
+                    for(int i=0; i < responseType.length(); i++)
+                    {
+                        //자동 띄어쓰기 일 경우
+                        if(responseType.getString(i).equals("spacing"))
+                        {
+                            spacingData = obj.getString("spacing");
+                            ic.setSelection(0,MAX_TEXT);
+                            handleBackspace();
+                            ic.commitText(spacingData,1);
+                        }
+
+                        //오타 수정의 경우
+                        else if(responseType.getString(i).equals("modified"))
+                        {
+                            cBtnList.clear();
+
+                            if(!obj.getString("modified").equals("noData")) {
+                                modifiedData = obj.getJSONObject("modified");
+                                Iterator<String> correctionKeys = modifiedData.keys();
+
+                                while (correctionKeys.hasNext()){
+                                    String oldWord = correctionKeys.next();
+                                    String[] correctionWordTmp;
+
+                                    correctionList = modifiedData.getJSONArray(oldWord);
+
+                                    int index = 1;
+                                    correctionWordTmp = new String[correctionList.length()-1];
+                                    while(index < correctionList.length())
+                                    {
+                                        correctionWordTmp[index-1] = correctionList.getString(index);
+                                    }
+
+                                    cBtnList.add(new correctionButtonInform(
+                                            correctionTextPosition.get(correctionList.getInt(0))[0],
+                                            correctionTextPosition.get(correctionList.getInt(0))[1],
+                                            oldWord,
+                                            correctionWordTmp));
+                                }
+                            }
+
+                            //오타 수정 버튼 텍스트 갱신
+                            clearButtonText(correctionButton);
+                            for(int j = 0; j < cBtnList.size(); j++)
+                            {
+                                if(j>=correctionButton.length)
+                                    break;
+
+                                correctionButton[j].setText(cBtnList.get(j).getOldWord());
+                            }
+                        }
+                    }
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+                break;
+        }
+    }
+
+    private void clearButtonText(Button[] btn){
+        for(int i = 0; i < btn.length; i++)
+        {
+            btn[i].setText("");
+        }
+    }
+
+    //수정 버튼에 관한 정보가 담긴 클래스
+    private class correctionButtonInform
+    {
+        private int startPos, finishPos;
+        private String oldWord;
+        private String[] correctionWord;
+
+        correctionButtonInform(int startPos, int finishPos, String oldWord, String[] correctionWord)
+        {
+            this.startPos = startPos;
+            this.finishPos = finishPos;
+            this.oldWord = oldWord;
+            this.correctionWord = correctionWord;
+        }
+
+        public int getStartPos() {
+            return startPos;
+        }
+
+        public int getFinishPos(){
+            return finishPos;
+        }
+
+        public String getOldWord(){
+            return  oldWord;
+        }
+
+        public String[] getCorrectionWord(){
+            return correctionWord;
+        }
+    }
+
+    //tcp 연결 및 통신 시작
+    private void TcpOpen(TcpClient tcp){
+        if(!tcp.getIsRunning()) {
+            t = null;
+            t = new Thread(tcp);
+            tcp.setRunningState(true);
+//            Log.d("what Thread",tcp.toString());
+            t.start();
+            Log.d("numThread",String.valueOf(Thread.activeCount()));
+//            if(tcp.getState() == Thread.State.TERMINATED)
+//                tcp.start();
+        }
+    }
+
+    //tcp 연결 해제
+    private void TcpClose(TcpClient tcp){
+        tcp.setRunningState(false);
+        tcp.socketClose();
     }
 }

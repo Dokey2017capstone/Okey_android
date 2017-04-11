@@ -4,9 +4,6 @@
     android:verticalGap="0px"
     android:keyHeight="@dimen/key_height"
     >
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="20px"/>
     <Row>
         <Key android:codes="49" android:keyLabel="1" android:keyEdgeFlags="left"/>
         <Key android:codes="50" android:keyLabel="2"/>

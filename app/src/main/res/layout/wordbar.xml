@@ -8,26 +8,30 @@
 
     <Button
         android:id="@+id/word1"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="0px"
+        android:layout_weight="3"
+        android:layout_height="150px"
         android:text = "하이"/>
 
     <Button
         android:id="@+id/word2"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="0px"
+        android:layout_weight="3"
+        android:layout_height="150px"
         android:text = "하이"/>
 
     <Button
         android:id="@+id/word3"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="0px"
+        android:layout_weight="3"
+        android:layout_height="150px"
         android:text = "하이"/>
 
     <Button
         android:id="@+id/changeBt"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="0px"
+        android:layout_weight="1"
+        android:layout_height="150px"
         android:text="교체" />
 
 </LinearLayout>

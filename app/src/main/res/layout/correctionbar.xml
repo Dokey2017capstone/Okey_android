@@ -4,30 +4,42 @@
     android:id="@+id/wordLayout"
     android:layout_height="wrap_content"
     android:orientation="horizontal"
-    android:background="@color/candidate_background">
+    android:background="@color/candidate_normal">
 
     <Button
-        android:id="@+id/word1"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text = "바이"/>
+        android:id="@+id/renew"
+        android:layout_width="0px"
+        android:layout_weight="1"
+        android:layout_height="150px"
+        android:text = "renew"
+        />
 
     <Button
-        android:id="@+id/word2"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text = "바이"/>
+        android:id="@+id/cword1"
+        android:layout_width="0px"
+        android:layout_weight="3"
+        android:layout_height="150px"
+        android:text = ""/>
 
     <Button
-        android:id="@+id/word3"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text = "바이"/>
+        android:id="@+id/cword2"
+        android:layout_width="0px"
+        android:layout_weight="3"
+        android:layout_height="150px"
+        android:text = ""/>
+
+    <Button
+        android:id="@+id/cword3"
+        android:layout_width="0px"
+        android:layout_weight="3"
+        android:layout_height="150px"
+        android:text = ""/>
 
     <Button
         android:id="@+id/changeBt2"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="교체"/>
+        android:layout_width="0px"
+        android:layout_weight="1"
+        android:layout_height="150px"
+        android:text="교체" />
 
 </LinearLayout>
