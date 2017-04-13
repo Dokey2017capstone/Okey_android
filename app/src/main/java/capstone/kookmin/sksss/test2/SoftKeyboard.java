@@ -139,7 +139,7 @@ public class SoftKeyboard extends InputMethodService
     private static final String ip = "13.112.247.215";
     private static final int port = 8100;
     private MessegeHandler mHandler = new MessegeHandler(this);
-    private TcpClient tcp = new TcpClient(ip, port, mHandler);
+    private TcpClient tcp = new TcpClient(this, ip, port, mHandler);
     Thread t;
 
     /**
@@ -509,9 +509,9 @@ public class SoftKeyboard extends InputMethodService
         }
 
         //서버와의 소켓 닫기
-        Log.d("tcp","close");
-        TcpClose(tcp);
-        Log.d("boolean",tcp.getIsRunning() + "");
+        //Log.d("tcp","close");
+        //TcpClose(tcp);
+        //Log.d("boolean",tcp.getIsRunning() + "");
     }
 
     //편집기에서 입력 시작시 호출
@@ -2404,16 +2404,6 @@ public class SoftKeyboard extends InputMethodService
             pickDefaultCandidate();
         }
         */
-        InputConnection ic = getCurrentInputConnection();
-
-        //서버로 보낼 오타 수정 메시지 작성 및 송신
-        if(!tcp.getIsRunning())
-            TcpOpen(tcp);
-        String text = ic.getExtractedText(new ExtractedTextRequest(), 0).text.toString();
-        String sendJson = makeJsonToReq(true, false, setTextListForCorrect(text), null);
-        Log.d("text??", sendJson);
-        tcp.sendData(sendJson);
-        ////////////
     }
 
     public void swipeLeft() {
@@ -2425,6 +2415,16 @@ public class SoftKeyboard extends InputMethodService
     }
 
     public void swipeUp() {
+        InputConnection ic = getCurrentInputConnection();
+
+        //서버로 보낼 오타 수정 메시지 작성 및 송신
+        if(!tcp.getIsRunning())
+            TcpOpen(tcp);
+        String text = ic.getExtractedText(new ExtractedTextRequest(), 0).text.toString();
+        String sendJson = makeJsonToReq(true, false, setTextListForCorrect(text), null);
+        Log.d("text??", sendJson);
+        tcp.sendData(sendJson);
+        ////////////
     }
 
     public void onPress(int primaryCode) {
@@ -2539,6 +2539,7 @@ public class SoftKeyboard extends InputMethodService
         switch (msg.what)
         {
             case MSG_REQUEST_RECEIVE:
+                Toast.makeText(this,"Receive Data : " + msg.obj.toString(), Toast.LENGTH_LONG).show();
                 try {
                     ic = getCurrentInputConnection();
                     obj = new JSONObject((String) msg.obj);
@@ -2552,8 +2553,8 @@ public class SoftKeyboard extends InputMethodService
                         if(responseType.getString(i).equals("spacing"))
                         {
                             spacingData = obj.getString("spacing");
-                            ic.setSelection(0,MAX_TEXT);
-                            handleBackspace();
+                            ic.finishComposingText();
+                            ic.deleteSurroundingText(MAX_TEXT,MAX_TEXT);
                             ic.commitText(spacingData,1);
                         }
 

@@ -1,5 +1,6 @@
 package capstone.kookmin.sksss.test2;
 
+import android.content.Context;
 import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
@@ -29,6 +30,8 @@ public class TcpClient implements Runnable {
     private MessegeHandler mHandler;
     private boolean isRunning = false;
 
+    private Context context;
+
     //서버에서 메시지 수신을 기다리는 스레드
     public void run(){
         //서버에서 메시지가 올 경우
@@ -38,10 +41,19 @@ public class TcpClient implements Runnable {
                 try {
                     if (networkReader != null) {
                         dataFromServer = networkReader.readLine();
+//                        String temp = null;
+//                        temp = networkReader.readLine();
+//                        while (temp != null && !temp.equals("")) {
+//                            dataFromServer += temp;
+//                            temp = null;
+//                            temp = networkReader.readLine();
+//                            Log.d("hi",temp);
+//                        }
                         if (dataFromServer != null) {
                             Message msg = mHandler.obtainMessage(MSG_REQUEST_RECEIVE, dataFromServer);
-                            mHandler.sendMessage(msg);
                             Log.d("Get from server", dataFromServer);
+                            mHandler.sendMessage(msg);
+                            //Toast.makeText(context,"Receive Data : " + msg.toString(), Toast.LENGTH_LONG).show();
                             dataFromServer = null;
                         }
                     }
@@ -52,8 +64,9 @@ public class TcpClient implements Runnable {
     }
 
     //생성자
-    public TcpClient(String ip, int port, MessegeHandler mHandler)
+    public TcpClient(Context context, String ip, int port, MessegeHandler mHandler)
     {
+        this.context = context;
         this.ip = ip;
         this.port = port;
         this.mHandler = mHandler;
@@ -63,10 +76,11 @@ public class TcpClient implements Runnable {
     //서버로 데이터를 전송하는 메소드
     public void sendData(String str)
     {
-        if(socket!=null) {
+        if(socket!=null && socket.isConnected()) {
             Log.d("in","socket");
             PrintWriter out = new PrintWriter(networkWriter, true);
             out.println(str+"\n");
+            Toast.makeText(context,"Send Data : " + str, Toast.LENGTH_LONG).show();
         }
         else{
             Log.w("Network error","Not open socket.");
@@ -83,10 +97,11 @@ public class TcpClient implements Runnable {
                 networkWriter = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
                 networkReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             } catch (IOException e) {
+                socketClose();
                 isRunning = false;
                 //this.interrupt();
-                Log.w("Error", "Network");
                 e.printStackTrace();
+                Log.w("Error", "Network");
                 Log.w("Why error?", e.getMessage());
             }
     }
