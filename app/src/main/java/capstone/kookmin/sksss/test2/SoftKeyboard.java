@@ -108,6 +108,10 @@ public class SoftKeyboard extends InputMethodService
 
     //수정 가능한 String
     private StringBuilder mComposing = new StringBuilder();
+    //updateSelection() 전의 텍스트 데이터
+    //private String beforeTextData = "";
+    //updateSelection() 현재의 텍스트 데이터
+    //private String nowTextData;
     private StringBuilder test = new StringBuilder();/////////////////////////
     private StringBuilder test2 = new StringBuilder();
     private List<String[]> textListSeparated = new ArrayList<String[]>();   //서버에서 받은 오타 단어별 수정 리스트 저장
@@ -149,6 +153,18 @@ public class SoftKeyboard extends InputMethodService
     @Override public void onCreate() {
         super.onCreate();
         mWordSeparators = getResources().getString(R.string.word_separators);
+        //
+        String[] a = new String[3];
+        a[0] = "천";
+        a[1] = "하하";
+        a[2] = "ㅋㅋㅋ";
+        String[] b = new String[2];
+        b[0] = "ㅎ";
+        b[1] = "zz";
+
+        cBtnList.add(new correctionButtonInform(1,3,"나는",a));
+        cBtnList.add(new correctionButtonInform(3,5,"크크",b));
+        //
         //tcp.start();
     }
 
@@ -205,6 +221,7 @@ public class SoftKeyboard extends InputMethodService
     Button button2;
     Button button3;
     Button[] correctionButton = new Button[3];  //수정 버튼
+    int popUpPosition; //현재 클릭한 오타 수정 버튼
 
     //자동완성/오타수정 뷰 관련 클릭 리스너
     Button.OnClickListener mOnClickListner = new View.OnClickListener(){
@@ -225,7 +242,6 @@ public class SoftKeyboard extends InputMethodService
 ////                    getCurrentInputConnection().beginBatchEdit();
 ////                    getCurrentInputConnection().setSelection(2,3);
 ////                    getCurrentInputConnection().commitText("a",1);
-//                    boolean s = getCurrentInputConnection().commitCorrection(a);
 ////                    getCurrentInputConnection().endBatchEdit();
 //                    //getCurrentInputConnection().commitText("a",0);
 //                    Log.d("boolean?",String.valueOf(s));
@@ -233,12 +249,22 @@ public class SoftKeyboard extends InputMethodService
                     ///////////
                 case R.id.changeBt2:
                     setCandidatesView(wordBar);
+                    boolean s = getCurrentInputConnection().commitCorrection(new CorrectionInfo(0,"ab","cd"));
+                    Log.d("zzzzzzzzzzz",String.valueOf(s));
                     break;
                 //자동완성 클릭
                 case R.id.word1:case R.id.word2:case R.id.word3:
                     bt = (Button)v;
-                    mComposing.setLength(0);
-                    mComposing.append(bt.getText() + " ");
+                    //composing의 경우 단어 자동완성
+                    if (mComposing.length() > 0) {
+                        mComposing.setLength(0);
+                        getCurrentInputConnection().commitText(bt.getText()+" ",1);
+                    }
+                    //composing이 아닌 경우 단어 자동완성
+                    else{
+                        setText(candidateWordPosArray[0],candidateWordPosArray[1]-candidateWordPosArray[0],bt.getText() + " ");
+                    }
+                    //!?!?!?!?!
                     ////////////////////
 //                    Log.d("isOK?","onClickListner");
 //                    //서버에 클릭한 버튼의 내용을 전송
@@ -247,15 +273,17 @@ public class SoftKeyboard extends InputMethodService
 //                        tcp.sendData((String) bt.getText());
 //                    }
                     ////////////////
-                    getCurrentInputConnection().setComposingText(mComposing, 1);
-                    mComposing.setLength(0);
-                    getCurrentInputConnection().finishComposingText();
+                    //isTextUpdate = true;
+                    //Log.d("헤헷","onUpdateSelection");
+//                    getCurrentInputConnection().setComposingText(mComposing, 1);
+//                    mComposing.setLength(0);
+//                    getCurrentInputConnection().finishComposingText();
+                    //isCommitted = true;
                     if (current == mHangulKeyboard || current == mHangulShiftedKeyboard ) {
                         clearHangul();
                     }
                     break;
                 case R.id.cword1:case R.id.cword2:case R.id.cword3:
-                    int popUpPosition;
                     bt = (Button)v;
                     PopupMenu cPopup = new PopupMenu(getApplicationContext(), bt);
                     cPopup.getMenuInflater().inflate(R.menu.correctionpopup, cPopup.getMenu());
@@ -267,6 +295,7 @@ public class SoftKeyboard extends InputMethodService
                         popUpPosition = 1;
                     else
                         popUpPosition = 2;
+
                     if(cBtnList.size()>popUpPosition)
                     {
                         for(int i=0; i<cBtnList.get(popUpPosition).getCorrectionWord().length; i++)
@@ -278,6 +307,7 @@ public class SoftKeyboard extends InputMethodService
                     break;
                 //오타수정 바 혹은 갱신 버튼 클릭시
                 case R.id.changeBt:
+                    //cBtnList.clear();
                     setCandidatesView(correctionBar);
                 case R.id.renew:
                     ic = getCurrentInputConnection();
@@ -297,9 +327,45 @@ public class SoftKeyboard extends InputMethodService
     };
 
     PopupMenu.OnMenuItemClickListener mOnMenuItemClickListener = new PopupMenu.OnMenuItemClickListener() {
+        InputConnection ic;
+        int correctPos, correctLength;
         @Override
         public boolean onMenuItemClick(MenuItem item) {
+            ////
+            ic = getCurrentInputConnection();
+            correctPos = cBtnList.get(popUpPosition).getStartPos() + cBtnList.get(popUpPosition).getOldWord().length();
+            correctLength = item.getTitle().length() - cBtnList.get(popUpPosition).getOldWord().length();
+            //
+//            ic.setSelection(cBtnList.get(popUpPosition).getStartPos(),
+//                    cBtnList.get(popUpPosition).getStartPos() + cBtnList.get(popUpPosition).getOldWord().length());
+//            if(cBtnList.get(popUpPosition).getOldWord().equals(ic.getSelectedText(0))) {
+            if(mComposing.length()>0)
+            {
+                commitTyped(ic);
+                clearHangul();
+            }
+            ic.setSelection(cBtnList.get(popUpPosition).getStartPos(),
+                    cBtnList.get(popUpPosition).getStartPos()+cBtnList.get(popUpPosition).getOldWord().length());
+            Log.d("compare",ic.getSelectedText(0).toString() +","+cBtnList.get(popUpPosition).getOldWord());
+            if(ic.getSelectedText(0)!=null&&ic.getSelectedText(0).equals(cBtnList.get(popUpPosition).getOldWord())) {
+                setText(cBtnList.get(popUpPosition).getStartPos(), cBtnList.get(popUpPosition).getOldWord().length(), item.getTitle().toString());
+                updateAfterCBtnList(popUpPosition, correctLength);
+            }
+            else {
+                Log.d("Not", "equal");
+                ic.setSelection(MAX_TEXT,MAX_TEXT);
+            }
+            cBtnList.remove(popUpPosition);
+//                updateCBtnList(correctPos, correctLength);
+//            }
+            //클리어 해주는 알고리즘이 필요함
+
+
+//            ic.commitCorrection(new CorrectionInfo(cBtnList.get(popUpPosition).getStartPos(), cBtnList.get(popUpPosition).getOldWord(),item.getTitle()));
+            //Log.d("위치는?",String.valueOf(cBtnList.get(popUpPosition).getStartPos()));
+           // isTextUpdate=true;
             /////////// 수정 이벤트
+           // Log.d("onUpdateSelection :","onUpdateSelection :");
             return false;
         }
     };
@@ -312,10 +378,10 @@ public class SoftKeyboard extends InputMethodService
         button3.setText(str[2]);
     }
 
-    void updateCandidateButton()//////////////////
+    void updateCandidateButton()
     {
         String[] a = new String[3];
-        a[0] = mComposing.toString();
+        a[0] = candidateOldWord;
         a[1] = a[0];
         a[2] = a[1];
         Log.d("z","a"+a[0]+"z");
@@ -550,7 +616,41 @@ public class SoftKeyboard extends InputMethodService
 
         super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd,
                 candidatesStart, candidatesEnd);
+        //Log.i("Hangul", "onUpdateSelection :" + String.valueOf(isTextUpdate));
+        InputConnection ic = getCurrentInputConnection();
 
+        if(newSelStart<newSelEnd && ic.getSelectedText(0)!=null)
+        {
+            candidateOldWord = ic.getSelectedText(0).toString();
+            candidateWordPosArray[0] = newSelStart;
+            candidateWordPosArray[1] = newSelEnd;
+        }
+        else if(mComposing.length()<=0)
+            updateCandidateWord(newSelStart);
+
+        //오타 수정 단어들의 위치 갱신
+//        if(ic.getExtractedText(new ExtractedTextRequest(), 0)==null)
+//            nowTextData="";
+//        else
+//            nowTextData = ic.getExtractedText(new ExtractedTextRequest(), 0).text.toString();
+//        if((nowTextData.length() != beforeTextData.length()) && !(oldSelStart == newSelStart && oldSelEnd == newSelEnd))
+//        {
+//            Log.i("Hangul", "onUpdateSelection : 수정");
+//            for(int i = 0; i<cBtnList.size(); i++)
+//            {
+//                if(cBtnList.get(i).getStartPos() >= oldSelEnd)
+//                {
+//                    cBtnList.get(i).addPos(newSelEnd-oldSelEnd);
+//                }
+////                else if(cBtnList.get(i).getStartPos()>=oldSelStart && cBtnList.get(i).getFinishPos()<=oldSelEnd)
+////                {
+////                    cBtnList.remove(i);
+////                }
+//            }
+//        }
+//        if(!(oldSelStart == newSelStart && oldSelEnd == newSelEnd))
+//            beforeTextData = nowTextData;
+//            isTextUpdate = false;
         Log.i("Hangul", "onUpdateSelection :"
                 + Integer.toString(oldSelStart) + ":"
                 + Integer.toString(oldSelEnd) + ":"
@@ -572,9 +672,10 @@ public class SoftKeyboard extends InputMethodService
                     || newSelEnd != candidatesEnd)) {
                 mComposing.setLength(0);
                 //updateCandidates();
-                InputConnection ic = getCurrentInputConnection();
+//                ic = getCurrentInputConnection();
                 if (ic != null) {
                     ic.finishComposingText();
+                    //isCommitted = true;
                 }
             }
         }
@@ -586,9 +687,10 @@ public class SoftKeyboard extends InputMethodService
 //	            updateCandidates();
                 Log.d("dz","4");
                 clearHangul();
-                InputConnection ic = getCurrentInputConnection();
+//                ic = getCurrentInputConnection();
                 if (ic != null) {
                     ic.finishComposingText();
+                    //isCommitted = true;
                 }
             }
             isOkUpdateSelection = true;
@@ -765,8 +867,10 @@ public class SoftKeyboard extends InputMethodService
     private void commitTyped(InputConnection inputConnection) {
         if (mComposing.length() > 0) {
             //텍스트 입력
-            inputConnection.commitText(mComposing, 1);// mComposing.length());
+            //inputConnection.commitText(mComposing, 1);// mComposing.length());
+            inputConnection.finishComposingText();
             mComposing.setLength(0);
+            //isCommitted=true;
             updateCandidates();
         }
     }
@@ -841,41 +945,44 @@ public class SoftKeyboard extends InputMethodService
             Keyboard current = mInputView.getKeyboard();
 
             if (mComposing.length() > 0) {
-                commitTyped(getCurrentInputConnection());//////////////////////////
+                commitTyped(getCurrentInputConnection());
             }
-
             if (current == mHangulKeyboard || current == mHangulShiftedKeyboard ) {
                 Log.d("dz","3");
                 clearHangul();
                 sendKey(primaryCode);
+//                isTextUpdate=true;
             }
-            else if (current == mSejongKeyboard) {
-                switch(ko_state_idx) {
-                    case KO_S_1110:
-                        if (mComposing.length() > 0) {
-                            mComposing.setLength(0);
-                            getCurrentInputConnection().finishComposingText();
-                        }
-                        clearSejong();
-                        break;
-                    default :
-                        clearSejong();
-                        sendKey(primaryCode);
-                        break;
-                }
-            }
+//            else if (current == mSejongKeyboard) {
+//                switch(ko_state_idx) {
+//                    case KO_S_1110:
+//                        if (mComposing.length() > 0) {
+//                            mComposing.setLength(0);
+//                            getCurrentInputConnection().finishComposingText();
+//                        }
+//                        clearSejong();
+//                        break;
+//                    default :
+//                        clearSejong();
+//                        sendKey(primaryCode);
+//                        break;
+//                }
+//            }
             else {
                 sendKey(primaryCode);
+//                isTextUpdate=true;
             }
             updateShiftKeyState(getCurrentInputEditorInfo());
+            Log.d("헤헷","onUpdateSelection");
         } else if (primaryCode == Keyboard.KEYCODE_DELETE) {
             Keyboard current = mInputView.getKeyboard();
             if (current == mHangulKeyboard || current == mHangulShiftedKeyboard ) {
-                hangulSendKey(-2,HCURSOR_NONE);
+                hangulSendKey(-2,HCURSOR_NONE);/////////////////////
+                //isTextUpdate=true;
             }
-            else if (current == mSejongKeyboard) {
-                sendSejongKey((char)0,HCURSOR_DELETE);
-            }
+//            else if (current == mSejongKeyboard) {
+//                sendSejongKey((char)0,HCURSOR_DELETE);
+//            }
             else {
                 handleBackspace();
             }
@@ -884,16 +991,18 @@ public class SoftKeyboard extends InputMethodService
         } else if (primaryCode == Keyboard.KEYCODE_CANCEL) {
             handleClose();
             return;
-        } else if (primaryCode == LatinKeyboardView.KEYCODE_OPTIONS) {
-            // Show a menu or somethin'
-
-            Intent i = new Intent(Intent.ACTION_VIEW);
-            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            i.setData(Uri.parse("http://www.kandroid.com/market/product.php?id=1"));
-            startActivity(i);
-
-            return;
-        } else if ((primaryCode == Keyboard.KEYCODE_MODE_CHANGE || primaryCode == -7)
+        }
+//        else if (primaryCode == LatinKeyboardView.KEYCODE_OPTIONS) {
+//            // Show a menu or somethin'
+//
+//            Intent i = new Intent(Intent.ACTION_VIEW);
+//            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+//            i.setData(Uri.parse("http://www.kandroid.com/market/product.php?id=1"));
+//            startActivity(i);
+//
+//            return;
+//        }
+        else if ((primaryCode == Keyboard.KEYCODE_MODE_CHANGE || primaryCode == -7)
                 && mInputView != null) {
             Keyboard current = mInputView.getKeyboard();
             if (current == mSymbolsEnKeyboard || current == mSymbolsEnShiftedKeyboard) {
@@ -942,12 +1051,12 @@ public class SoftKeyboard extends InputMethodService
                 current.setShifted(false);
             }
 
-            if (current == mSejongKeyboard) {
-                mInputView.setPreviewEnabled(false);
-            }
-            else {
+//            if (current == mSejongKeyboard) {
+//                mInputView.setPreviewEnabled(false);
+//            }
+//            else {
                 mInputView.setPreviewEnabled(true);
-            }
+//            }
         }
         else {
 
@@ -956,14 +1065,16 @@ public class SoftKeyboard extends InputMethodService
             if (current == mHangulKeyboard || current == mHangulShiftedKeyboard) {
                 handleHangul(primaryCode, keyCodes);
             }
-            else if (current == mSejongKeyboard) {
-                handleSejong(primaryCode, keyCodes);
-            }
+//            else if (current == mSejongKeyboard) {
+//                handleSejong(primaryCode, keyCodes);
+//            }
             else {
                 handleCharacter(primaryCode, keyCodes);
             }
             // Hangul End Code
         }
+        if(mComposing.length()>0)
+            updateCandidateComposing();
         updateCandidateButton();// 후보자 추천 설정
     }
 
@@ -1016,12 +1127,15 @@ public class SoftKeyboard extends InputMethodService
             mComposing.delete(length - 1, length);
             getCurrentInputConnection().setComposingText(mComposing, 1);
             updateCandidates();
+            //isTextUpdate=true;
         } else if (length > 0) {
             mComposing.setLength(0);
             getCurrentInputConnection().commitText("", 0);
             updateCandidates();
+            //isTextUpdate=true;
         } else {
             keyDownUp(KeyEvent.KEYCODE_DEL);
+            //isTextUpdate=true;
         }
         updateShiftKeyState(getCurrentInputEditorInfo());
     }
@@ -1130,8 +1244,16 @@ public class SoftKeyboard extends InputMethodService
     private static char HCURSOR_DELETE = 7;
 
 
-    private boolean isOkUpdateSelection = true;
     //한글키보드의 경우, 커서가 업데이트 될때 해당 함수 내용을 실행할것인지 여부 (한글 자모 조합을 위해 setComposingText를 유지하기 위함)
+    private boolean isOkUpdateSelection = true;
+    //텍스트값 업데이트(변경) 여부 확인(오타 수정에서 커서 추적을 위함)
+    //private boolean isTextUpdate = false;
+    //커밋 여부 확인
+    //private boolean isCommitted = false;
+    //자동완성단어로 교체될 단어의 시작/끝위치(길이 2) 배열
+    private int candidateWordPosArray[] = new int[2];
+    //자동완성단어로 교체될 Old 단어
+    private String candidateOldWord;
     private static int mHCursorState = HCURSOR_NONE;
     private static char h_char[] = new char[1];
     private int previousCurPos = -2;
@@ -1181,6 +1303,7 @@ public class SoftKeyboard extends InputMethodService
 
             mComposing.append((char)newHangulChar);
             getCurrentInputConnection().setComposingText(mComposing, 1);
+            //isTextUpdate=true;
             mHCursorState = HCURSOR_NEW;
         }
         else if (hCursor == HCURSOR_ADD) {
@@ -1195,6 +1318,7 @@ public class SoftKeyboard extends InputMethodService
             mComposing.append((char)newHangulChar);
             Log.d("length",mComposing.toString());
             getCurrentInputConnection().setComposingText(mComposing, 1);
+            //isTextUpdate=true;
         }
         else if (hCursor == HCURSOR_UPDATE) {
             Log.i("Hangul", "HCURSOR_UPDATE");
@@ -1230,18 +1354,21 @@ public class SoftKeyboard extends InputMethodService
 //                        }
                         if(mComposing.length()>0) {
                             mComposing.delete(mComposing.length()-1,mComposing.length());
+                            //isTextUpdate=true;
                             getCurrentInputConnection().setComposingText(mComposing, 1);
                         }
                         else{
                             getCurrentInputConnection().commitText("", 0);
                             clearHangul();
                             keyDownUp(KeyEvent.KEYCODE_DEL);
+                            //isTextUpdate=true;
                         }
                         break;
                     case H_STATE_1: // �ʼ�
 //					keyDownUp(KeyEvent.KEYCODE_DEL);
                         mComposing.setLength(mComposing.length()-1);//
                         getCurrentInputConnection().setComposingText(mComposing, 1);
+                        //isTextUpdate=true;
                         Log.d("dz","7");
                         if(mComposing.length() == 0) {
                             getCurrentInputConnection().commitText("", 0);
@@ -1261,6 +1388,7 @@ public class SoftKeyboard extends InputMethodService
 //						keyDownUp(KeyEvent.KEYCODE_DEL);
                             mComposing.setLength(mComposing.length()-1);
                             getCurrentInputConnection().setComposingText(mComposing, 1);
+                            //isTextUpdate=true;
                             Log.d("dz","6");
                             if(mComposing.length() == 0) {
                                 getCurrentInputConnection().commitText("", 0);
@@ -1276,7 +1404,7 @@ public class SoftKeyboard extends InputMethodService
                             mHangulState = H_STATE_3; // goto �߼�
                         }
                         break;
-                    case H_STATE_4: // �ʼ�,�߼�(�ܸ���,������)
+                    case H_STATE_4:
                         if (mHangulKeyStack[3] == 0) {
                             mHangulKeyStack[2] = 0;
                             mHangulJamoStack[1] = 0;
@@ -1294,7 +1422,7 @@ public class SoftKeyboard extends InputMethodService
                             hangulSendKey(newHangulChar, HCURSOR_UPDATE);
                         }
                         break;
-                    case H_STATE_5:	// �ʼ�,�߼�,����
+                    case H_STATE_5:
                         mHangulJamoStack[2] = 0;
                         mHangulKeyStack[4] = 0;
                         cho_idx = h_chosung_idx[mHangulJamoStack[0]];
@@ -1321,6 +1449,7 @@ public class SoftKeyboard extends InputMethodService
                 final int length = mComposing.length();
                 if (length > 1) {
                     mComposing.delete(length - 1, length);
+                    //isTextUpdate=true;
                 }
             }
 
@@ -1441,15 +1570,15 @@ public class SoftKeyboard extends InputMethodService
     final static char KO_S_1110 = 4;
     final static char KO_S_1111 = 5;
 
-    private void clearSejong() {
-        ko_state_idx = KO_S_0000;
-        ko_state_first_idx = 0;
-        ko_state_middle_idx = 0;
-        ko_state_last_idx = 0;
-        ko_state_next_idx = 0;
-        prev_key = -1;
-        return;
-    }
+//    private void clearSejong() {
+//        ko_state_idx = KO_S_0000;
+//        ko_state_first_idx = 0;
+//        ko_state_middle_idx = 0;
+//        ko_state_last_idx = 0;
+//        ko_state_next_idx = 0;
+//        prev_key = -1;
+//        return;
+//    }
 
     private int prev_key = -1;
     private char ko_state_idx = KO_S_0000;
@@ -1497,6 +1626,7 @@ public class SoftKeyboard extends InputMethodService
             if (mComposing.length() > 0) {
                 mComposing.setLength(0);
                 getCurrentInputConnection().finishComposingText();
+                //isCommitted = true;
             }
 
             mComposing.append(newHangulChar);
@@ -1586,312 +1716,312 @@ public class SoftKeyboard extends InputMethodService
         }
     }
 
-    private void handleSejong(int primaryCode, int[] keyCodes) {
-
-        char new_last_idx;
-        int base_idx;
-        char new_state_idx;
-        int idx;
-        char newHangulChar;
-        char cho_idx, jung_idx, jong_idx;
-        int key = primaryCode;
-
-        base_idx = primaryCode - 0x41;
-        idx = key_idx[base_idx];
-
-        Log.i("Hangul", "state[" + Integer.toString(ko_state_idx) + "]" + "["
-                + Integer.toString(ko_state_first_idx) + ","
-                + Integer.toString(ko_state_middle_idx) + ","
-                + Integer.toString(ko_state_last_idx) + ","
-                + Integer.toString(ko_state_next_idx) + "]"
-        );
-        Log.i("Hangul", "base_idx,idx[" + Integer.toString(base_idx) +
-                ":" + Integer.toString(idx) + "]");
-        if (base_idx < 9) {
-            switch(ko_state_idx) {
-                case KO_S_0000: // clear
-                    ko_state_first_idx = ko_first_state[ko_state_first_idx * 9 + idx];
-                    newHangulChar = (char)(0x3131 + chosung_code[ko_state_first_idx - 1]);
-                    sendSejongKey(newHangulChar, HCURSOR_NEW);
-                    ko_state_idx = KO_S_1000;
-                    break;
-                case KO_S_0100:
-                    ko_state_first_idx = ko_first_state[ko_state_first_idx * 9 + idx];
-                    ko_state_middle_idx = 0;
-                    newHangulChar = (char)(0x3131 + chosung_code[ko_state_first_idx - 1]);
-                    sendSejongKey(newHangulChar, HCURSOR_NEW);
-                    ko_state_idx = KO_S_1000;
-                    break;
-                case KO_S_1000:
-                    if (key == prev_key) {
-                        new_state_idx = ko_first_state[ko_state_first_idx * 9 + idx];
-                        if (new_state_idx == ko_state_first_idx) {
-                            newHangulChar = (char)(0x3131 + chosung_code[ko_state_first_idx - 1]);
-                            sendSejongKey(newHangulChar, HCURSOR_ADD);
-                        }
-                        else {
-                            ko_state_first_idx = new_state_idx;
-                            newHangulChar = (char)(0x3131 + chosung_code[ko_state_first_idx - 1]);
-                            sendSejongKey(newHangulChar, HCURSOR_UPDATE);
-                        }
-                    }
-                    else {
-                        ko_state_first_idx = ko_first_state[idx];
-                        newHangulChar = (char)(0x3131 + chosung_code[ko_state_first_idx - 1]);
-                        sendSejongKey(newHangulChar, HCURSOR_ADD);
-                    }
-                    break;
-                case KO_S_1100: // �ʼ�,�߼�
-                    ko_state_last_idx = ko_last_state[ko_state_last_idx * 9 + idx];
-                    Log.i("Hangul","ko_state_last_idx[" + Integer.toString(ko_state_last_idx) + "]");
-                    if (ko_state_middle_idx > 2) {
-                        cho_idx = h_chosung_idx[chosung_code[ko_state_first_idx - 1]];
-                        jung_idx = (char)(ko_state_middle_idx - 3);
-                        jong_idx = h_jongsung_idx[jongsung_code[ko_state_last_idx - 1]+1];
-                        newHangulChar = (char)(0xAC00 + ((cho_idx * 21 * 28) + (jung_idx * 28) + jong_idx));
-                        sendSejongKey(newHangulChar, HCURSOR_UPDATE);
-                        ko_state_idx = KO_S_1110;
-                    }
-                    else {
-                        Log.i("Hangul", "Not Combination...");
-                        // must be implemented.
-                    }
-                    break;
-                case KO_S_1110:
-                    new_last_idx = ko_last_state[ko_state_last_idx * 9 + idx];
-
-                    if(new_last_idx >= 28) {
-                        ko_state_last_idx = new_last_idx;
-                        ko_state_next_idx
-                                = ko_jong_l_split[(new_last_idx - 28) * 2 + 1];
-
-                        cho_idx = h_chosung_idx[chosung_code[ko_state_first_idx - 1]];
-                        jung_idx = (char)(ko_state_middle_idx - 3);
-                        char split_last_idx = jongsung_28idx[ko_state_last_idx - 28];
-                        Log.i("Hangul", "split_last_idx[" + Integer.toString(split_last_idx) + "]");
-                        if (split_last_idx > 0) {
-//	 	               Log.i("Hangul", "jongsung_code[" + Integer.toString(jongsung_code[split_last_idx-1]) + "]");
-//	    	            Log.i("Hangul", "jong_idx[" + Integer.toString(h_jongsung_idx[jongsung_code[split_last_idx - 1]+1]) + "]");
-                            jong_idx = h_jongsung_idx[jongsung_code[split_last_idx - 1]+1];
-                            newHangulChar = (char)(0xAC00 + ((cho_idx * 21 * 28) + (jung_idx * 28) + jong_idx));
-                        }
-                        else {
-                            newHangulChar = (char)(0xAC00 + ((cho_idx * 21 * 28) + (jung_idx * 28)));
-                        }
-                        sendSejongKey(newHangulChar, HCURSOR_UPDATE);
-
-                        newHangulChar = (char)(0x3131 + chosung_code[ko_state_next_idx - 1]);
-                        sendSejongKey(newHangulChar, HCURSOR_APPEND);
-
-                        ko_state_idx = KO_S_1111;
-                    }
-                    else if (new_last_idx == 0) {
-
-                        ko_state_first_idx = 0;
-                        ko_state_middle_idx = 0;
-                        ko_state_last_idx = 0;
-
-                        idx = key_idx[base_idx];
-                        ko_state_first_idx = ko_first_state[ko_state_first_idx * 9 + idx];
-                        newHangulChar = (char)(0x3131 + chosung_code[ko_state_first_idx - 1]);
-                        sendSejongKey(newHangulChar, HCURSOR_ADD);
-                        ko_state_idx = KO_S_1000;
-                    }
-                    else {
-                        ko_state_last_idx = new_last_idx;
-                        cho_idx = h_chosung_idx[chosung_code[ko_state_first_idx - 1]];
-                        jung_idx = (char)(ko_state_middle_idx - 3);
-                        jong_idx = h_jongsung_idx[jongsung_code[ko_state_last_idx - 1]+1];
-                        newHangulChar = (char)(0xAC00 + ((cho_idx * 21 * 28) + (jung_idx * 28) + jong_idx));
-                        sendSejongKey(newHangulChar, HCURSOR_UPDATE);
-                    }
-
-                    break;
-                case KO_S_1111:
-                    new_last_idx = ko_last_state[ko_state_last_idx * 9 + idx];
-
-                    if(new_last_idx >= 28) {
-                        ko_state_next_idx
-                                = ko_jong_l_split[(new_last_idx - 28) * 2 + 1];
-                        ko_state_last_idx = new_last_idx;
-
-                        cho_idx = h_chosung_idx[chosung_code[ko_state_first_idx - 1]];
-                        jung_idx = (char)(ko_state_middle_idx - 3);
-                        char split_last_idx = jongsung_28idx[ko_state_last_idx - 28];
-                        jong_idx = h_jongsung_idx[jongsung_code[split_last_idx - 1]+1];
-                        newHangulChar = (char)(0xAC00 + ((cho_idx * 21 * 28) + (jung_idx * 28) + jong_idx));
-                        sendSejongKey(newHangulChar, HCURSOR_UPDATE);
-
-                        newHangulChar = (char)(0x3131 + chosung_code[ko_state_next_idx - 1]);
-                        sendSejongKey(newHangulChar, HCURSOR_UPDATE_LAST);
-
-                        ko_state_idx = KO_S_1111;
-                    }
-                    else {
-                        if (prev_key == key) {
-                            ko_state_last_idx = new_last_idx;
-                            // delete last cursor
-                            ko_state_next_idx = 0;
-
-                            cho_idx = h_chosung_idx[chosung_code[ko_state_first_idx - 1]];
-                            jung_idx = (char)(ko_state_middle_idx - 3);
-                            jong_idx = h_jongsung_idx[jongsung_code[ko_state_last_idx - 1]+1];
-                            newHangulChar = (char)(0xAC00 + ((cho_idx * 21 * 28) + (jung_idx * 28) + jong_idx));
-                            sendSejongKey(newHangulChar, HCURSOR_UPDATE);
-
-                            sendSejongKey((char)0,HCURSOR_DELETE_LAST);
-                            ko_state_idx = KO_S_1110;
-                        }
-                        else {
-                            clearSejong();
-                            ko_state_first_idx = ko_first_state[ko_state_first_idx * 9 + idx];
-                            newHangulChar = (char)(0x3131 + chosung_code[ko_state_first_idx - 1]);
-                            sendSejongKey(newHangulChar, HCURSOR_ADD);
-                            ko_state_idx = KO_S_1000;
-                        }
-                    }
-                    break;
-
-            }
-        }
-        else {
-            switch(ko_state_idx) {
-
-                case KO_S_0000:
-                    ko_state_middle_idx = ko_middle_state[ko_state_middle_idx * 3 + idx];
-                    newHangulChar = getJungsungCode(ko_state_middle_idx);
-                    sendSejongKey(newHangulChar, HCURSOR_NEW);
-                    ko_state_idx = KO_S_0100;
-                    break;
-                case KO_S_0100:
-                    if (ko_middle_state[ko_state_middle_idx * 3 + idx] == 0) {
-                        ko_state_middle_idx = 0;
-                        ko_state_middle_idx = ko_middle_state[ko_state_middle_idx * 3 + idx];
-                        newHangulChar = getJungsungCode(ko_state_middle_idx);
-                        sendSejongKey(newHangulChar, HCURSOR_ADD);
-                    }
-                    else {
-                        ko_state_middle_idx = ko_middle_state[ko_state_middle_idx * 3 + idx];
-                        newHangulChar = getJungsungCode(ko_state_middle_idx);
-                        sendSejongKey(newHangulChar, HCURSOR_UPDATE);
-                    }
-                    break;
-                case KO_S_1000:
-                    ko_state_middle_idx = ko_middle_state[ko_state_middle_idx * 3 + idx];
-
-                    if (ko_state_middle_idx > 2) {
-                        cho_idx = h_chosung_idx[chosung_code[ko_state_first_idx - 1]];
-                        jung_idx = (char)(ko_state_middle_idx - 3);
-                        newHangulChar = (char)(0xAC00 + ((cho_idx * 21 * 28) + (jung_idx * 28)));
-                        sendSejongKey(newHangulChar, HCURSOR_UPDATE);
-                    }
-                    else {
-                        newHangulChar = getJungsungCode(ko_state_middle_idx);
-                        sendSejongKey(newHangulChar, HCURSOR_APPEND);
-                        // must be implemented.
-                    }
-                    ko_state_idx = KO_S_1100;
-                    break;
-                case KO_S_1100:
-                    if (ko_middle_state[ko_state_middle_idx * 3 + idx] == 0) {
-                        ko_state_first_idx = 0;
-                        ko_state_middle_idx = 0;
-                        ko_state_middle_idx = ko_middle_state[ko_state_middle_idx * 3 + idx];
-                        newHangulChar = getJungsungCode(ko_state_middle_idx);
-                        sendSejongKey(newHangulChar, HCURSOR_ADD);
-                        ko_state_idx = KO_S_0100;
-                    }
-                    else {
-                        ko_state_middle_idx = ko_middle_state[ko_state_middle_idx * 3 + idx];
-                        if (ko_state_middle_idx > 2) {
-                            cho_idx = h_chosung_idx[chosung_code[ko_state_first_idx - 1]];
-                            jung_idx = (char)(ko_state_middle_idx - 3);
-                            newHangulChar = (char)(0xAC00 + ((cho_idx * 21 * 28) + (jung_idx * 28)));
-                            sendSejongKey(newHangulChar, HCURSOR_UPDATE);
-                            sendSejongKey((char)0,HCURSOR_DELETE_LAST);
-                        }
-                        else {
-                            newHangulChar = getJungsungCode(ko_state_middle_idx);
-                            sendSejongKey(newHangulChar, HCURSOR_UPDATE_LAST);
-                        }
-                    }
-
-                    break;
-                case KO_S_1110:
-                    if (ko_jong_m_split[(ko_state_last_idx - 1) * 2] > 0) {
-                        // update jongsong
-                        cho_idx = h_chosung_idx[chosung_code[ko_state_first_idx - 1]];
-                        jung_idx = (char)(ko_state_middle_idx - 3);
-                        jong_idx = h_jongsung_idx[jongsung_code[ko_jong_m_split[(ko_state_last_idx - 1) * 2]]];
-                        newHangulChar = (char)(0xAC00 + ((cho_idx * 21 * 28) + (jung_idx * 28) + jong_idx));
-                        sendSejongKey(newHangulChar, HCURSOR_UPDATE);
-
-                    }
-                    else {
-                        cho_idx = h_chosung_idx[chosung_code[ko_state_first_idx - 1]];
-                        jung_idx = (char)(ko_state_middle_idx - 3);
-                        newHangulChar = (char)(0xAC00 + ((cho_idx * 21 * 28) + (jung_idx * 28)));
-                        sendSejongKey(newHangulChar, HCURSOR_UPDATE);
-                    }
-
-                    ko_state_first_idx
-                            = ko_jong_m_split[(ko_state_last_idx - 1) * 2 + 1];
-                    ko_state_middle_idx = 0;
-                    ko_state_middle_idx = ko_middle_state[ko_state_middle_idx * 3 + idx];
-
-                    if (ko_state_middle_idx > 2) {
-                        cho_idx = h_chosung_idx[chosung_code[ko_state_first_idx - 1]];
-                        jung_idx = (char)(ko_state_middle_idx - 3);
-                        newHangulChar = (char)(0xAC00 + ((cho_idx * 21 * 28) + (jung_idx * 28)));
-                        sendSejongKey(newHangulChar, HCURSOR_ADD);
-                        ko_state_idx = KO_S_1100;
-                    }
-                    else {
-                        newHangulChar = (char)(0x3131 + chosung_code[ko_state_first_idx - 1]);
-                        sendSejongKey(newHangulChar, HCURSOR_ADD);
-                        newHangulChar = getJungsungCode(ko_state_middle_idx);
-                        sendSejongKey(newHangulChar, HCURSOR_APPEND);
-                        // must be implemented.
-                    }
-
-                    ko_state_last_idx = 0;
-                    ko_state_idx = KO_S_1100;
-                    break;
-                case KO_S_1111:
-                    if (ko_state_last_idx >= 28) {
-                        ko_state_last_idx = jongsung_28idx[ko_state_last_idx - 28];
-                    }
-
-                    ko_state_first_idx = ko_state_next_idx;
-                    ko_state_middle_idx = 0;
-                    ko_state_middle_idx = ko_middle_state[ko_state_middle_idx * 3 + idx];
-
-                    sendSejongKey((char)0,HCURSOR_DELETE_LAST);
-
-                    if (ko_state_middle_idx > 2) {
-                        cho_idx = h_chosung_idx[chosung_code[ko_state_first_idx - 1]];
-                        jung_idx = (char)(ko_state_middle_idx - 3);
-                        newHangulChar = (char)(0xAC00 + ((cho_idx * 21 * 28) + (jung_idx * 28)));
-                        sendSejongKey(newHangulChar, HCURSOR_ADD);
-                        ko_state_idx = KO_S_1100;
-                    }
-                    else {
-                        newHangulChar = (char)(0x3131 + chosung_code[ko_state_first_idx - 1]);
-                        sendSejongKey(newHangulChar, HCURSOR_ADD);
-                        newHangulChar = getJungsungCode(ko_state_middle_idx);
-                        sendSejongKey(newHangulChar, HCURSOR_APPEND);
-                    }
-
-                    ko_state_last_idx = 0;
-                    ko_state_next_idx = 0;
-                    ko_state_idx = KO_S_1100;
-                    break;
-
-            }
-        }
-
-        prev_key = key;
-    }
+//    private void handleSejong(int primaryCode, int[] keyCodes) {
+//
+//        char new_last_idx;
+//        int base_idx;
+//        char new_state_idx;
+//        int idx;
+//        char newHangulChar;
+//        char cho_idx, jung_idx, jong_idx;
+//        int key = primaryCode;
+//
+//        base_idx = primaryCode - 0x41;
+//        idx = key_idx[base_idx];
+//
+//        Log.i("Hangul", "state[" + Integer.toString(ko_state_idx) + "]" + "["
+//                + Integer.toString(ko_state_first_idx) + ","
+//                + Integer.toString(ko_state_middle_idx) + ","
+//                + Integer.toString(ko_state_last_idx) + ","
+//                + Integer.toString(ko_state_next_idx) + "]"
+//        );
+//        Log.i("Hangul", "base_idx,idx[" + Integer.toString(base_idx) +
+//                ":" + Integer.toString(idx) + "]");
+//        if (base_idx < 9) {
+//            switch(ko_state_idx) {
+//                case KO_S_0000: // clear
+//                    ko_state_first_idx = ko_first_state[ko_state_first_idx * 9 + idx];
+//                    newHangulChar = (char)(0x3131 + chosung_code[ko_state_first_idx - 1]);
+//                    sendSejongKey(newHangulChar, HCURSOR_NEW);
+//                    ko_state_idx = KO_S_1000;
+//                    break;
+//                case KO_S_0100:
+//                    ko_state_first_idx = ko_first_state[ko_state_first_idx * 9 + idx];
+//                    ko_state_middle_idx = 0;
+//                    newHangulChar = (char)(0x3131 + chosung_code[ko_state_first_idx - 1]);
+//                    sendSejongKey(newHangulChar, HCURSOR_NEW);
+//                    ko_state_idx = KO_S_1000;
+//                    break;
+//                case KO_S_1000:
+//                    if (key == prev_key) {
+//                        new_state_idx = ko_first_state[ko_state_first_idx * 9 + idx];
+//                        if (new_state_idx == ko_state_first_idx) {
+//                            newHangulChar = (char)(0x3131 + chosung_code[ko_state_first_idx - 1]);
+//                            sendSejongKey(newHangulChar, HCURSOR_ADD);
+//                        }
+//                        else {
+//                            ko_state_first_idx = new_state_idx;
+//                            newHangulChar = (char)(0x3131 + chosung_code[ko_state_first_idx - 1]);
+//                            sendSejongKey(newHangulChar, HCURSOR_UPDATE);
+//                        }
+//                    }
+//                    else {
+//                        ko_state_first_idx = ko_first_state[idx];
+//                        newHangulChar = (char)(0x3131 + chosung_code[ko_state_first_idx - 1]);
+//                        sendSejongKey(newHangulChar, HCURSOR_ADD);
+//                    }
+//                    break;
+//                case KO_S_1100: // �ʼ�,�߼�
+//                    ko_state_last_idx = ko_last_state[ko_state_last_idx * 9 + idx];
+//                    Log.i("Hangul","ko_state_last_idx[" + Integer.toString(ko_state_last_idx) + "]");
+//                    if (ko_state_middle_idx > 2) {
+//                        cho_idx = h_chosung_idx[chosung_code[ko_state_first_idx - 1]];
+//                        jung_idx = (char)(ko_state_middle_idx - 3);
+//                        jong_idx = h_jongsung_idx[jongsung_code[ko_state_last_idx - 1]+1];
+//                        newHangulChar = (char)(0xAC00 + ((cho_idx * 21 * 28) + (jung_idx * 28) + jong_idx));
+//                        sendSejongKey(newHangulChar, HCURSOR_UPDATE);
+//                        ko_state_idx = KO_S_1110;
+//                    }
+//                    else {
+//                        Log.i("Hangul", "Not Combination...");
+//                        // must be implemented.
+//                    }
+//                    break;
+//                case KO_S_1110:
+//                    new_last_idx = ko_last_state[ko_state_last_idx * 9 + idx];
+//
+//                    if(new_last_idx >= 28) {
+//                        ko_state_last_idx = new_last_idx;
+//                        ko_state_next_idx
+//                                = ko_jong_l_split[(new_last_idx - 28) * 2 + 1];
+//
+//                        cho_idx = h_chosung_idx[chosung_code[ko_state_first_idx - 1]];
+//                        jung_idx = (char)(ko_state_middle_idx - 3);
+//                        char split_last_idx = jongsung_28idx[ko_state_last_idx - 28];
+//                        Log.i("Hangul", "split_last_idx[" + Integer.toString(split_last_idx) + "]");
+//                        if (split_last_idx > 0) {
+////	 	               Log.i("Hangul", "jongsung_code[" + Integer.toString(jongsung_code[split_last_idx-1]) + "]");
+////	    	            Log.i("Hangul", "jong_idx[" + Integer.toString(h_jongsung_idx[jongsung_code[split_last_idx - 1]+1]) + "]");
+//                            jong_idx = h_jongsung_idx[jongsung_code[split_last_idx - 1]+1];
+//                            newHangulChar = (char)(0xAC00 + ((cho_idx * 21 * 28) + (jung_idx * 28) + jong_idx));
+//                        }
+//                        else {
+//                            newHangulChar = (char)(0xAC00 + ((cho_idx * 21 * 28) + (jung_idx * 28)));
+//                        }
+//                        sendSejongKey(newHangulChar, HCURSOR_UPDATE);
+//
+//                        newHangulChar = (char)(0x3131 + chosung_code[ko_state_next_idx - 1]);
+//                        sendSejongKey(newHangulChar, HCURSOR_APPEND);
+//
+//                        ko_state_idx = KO_S_1111;
+//                    }
+//                    else if (new_last_idx == 0) {
+//
+//                        ko_state_first_idx = 0;
+//                        ko_state_middle_idx = 0;
+//                        ko_state_last_idx = 0;
+//
+//                        idx = key_idx[base_idx];
+//                        ko_state_first_idx = ko_first_state[ko_state_first_idx * 9 + idx];
+//                        newHangulChar = (char)(0x3131 + chosung_code[ko_state_first_idx - 1]);
+//                        sendSejongKey(newHangulChar, HCURSOR_ADD);
+//                        ko_state_idx = KO_S_1000;
+//                    }
+//                    else {
+//                        ko_state_last_idx = new_last_idx;
+//                        cho_idx = h_chosung_idx[chosung_code[ko_state_first_idx - 1]];
+//                        jung_idx = (char)(ko_state_middle_idx - 3);
+//                        jong_idx = h_jongsung_idx[jongsung_code[ko_state_last_idx - 1]+1];
+//                        newHangulChar = (char)(0xAC00 + ((cho_idx * 21 * 28) + (jung_idx * 28) + jong_idx));
+//                        sendSejongKey(newHangulChar, HCURSOR_UPDATE);
+//                    }
+//
+//                    break;
+//                case KO_S_1111:
+//                    new_last_idx = ko_last_state[ko_state_last_idx * 9 + idx];
+//
+//                    if(new_last_idx >= 28) {
+//                        ko_state_next_idx
+//                                = ko_jong_l_split[(new_last_idx - 28) * 2 + 1];
+//                        ko_state_last_idx = new_last_idx;
+//
+//                        cho_idx = h_chosung_idx[chosung_code[ko_state_first_idx - 1]];
+//                        jung_idx = (char)(ko_state_middle_idx - 3);
+//                        char split_last_idx = jongsung_28idx[ko_state_last_idx - 28];
+//                        jong_idx = h_jongsung_idx[jongsung_code[split_last_idx - 1]+1];
+//                        newHangulChar = (char)(0xAC00 + ((cho_idx * 21 * 28) + (jung_idx * 28) + jong_idx));
+//                        sendSejongKey(newHangulChar, HCURSOR_UPDATE);
+//
+//                        newHangulChar = (char)(0x3131 + chosung_code[ko_state_next_idx - 1]);
+//                        sendSejongKey(newHangulChar, HCURSOR_UPDATE_LAST);
+//
+//                        ko_state_idx = KO_S_1111;
+//                    }
+//                    else {
+//                        if (prev_key == key) {
+//                            ko_state_last_idx = new_last_idx;
+//                            // delete last cursor
+//                            ko_state_next_idx = 0;
+//
+//                            cho_idx = h_chosung_idx[chosung_code[ko_state_first_idx - 1]];
+//                            jung_idx = (char)(ko_state_middle_idx - 3);
+//                            jong_idx = h_jongsung_idx[jongsung_code[ko_state_last_idx - 1]+1];
+//                            newHangulChar = (char)(0xAC00 + ((cho_idx * 21 * 28) + (jung_idx * 28) + jong_idx));
+//                            sendSejongKey(newHangulChar, HCURSOR_UPDATE);
+//
+//                            sendSejongKey((char)0,HCURSOR_DELETE_LAST);
+//                            ko_state_idx = KO_S_1110;
+//                        }
+//                        else {
+//                            clearSejong();
+//                            ko_state_first_idx = ko_first_state[ko_state_first_idx * 9 + idx];
+//                            newHangulChar = (char)(0x3131 + chosung_code[ko_state_first_idx - 1]);
+//                            sendSejongKey(newHangulChar, HCURSOR_ADD);
+//                            ko_state_idx = KO_S_1000;
+//                        }
+//                    }
+//                    break;
+//
+//            }
+//        }
+//        else {
+//            switch(ko_state_idx) {
+//
+//                case KO_S_0000:
+//                    ko_state_middle_idx = ko_middle_state[ko_state_middle_idx * 3 + idx];
+//                    newHangulChar = getJungsungCode(ko_state_middle_idx);
+//                    sendSejongKey(newHangulChar, HCURSOR_NEW);
+//                    ko_state_idx = KO_S_0100;
+//                    break;
+//                case KO_S_0100:
+//                    if (ko_middle_state[ko_state_middle_idx * 3 + idx] == 0) {
+//                        ko_state_middle_idx = 0;
+//                        ko_state_middle_idx = ko_middle_state[ko_state_middle_idx * 3 + idx];
+//                        newHangulChar = getJungsungCode(ko_state_middle_idx);
+//                        sendSejongKey(newHangulChar, HCURSOR_ADD);
+//                    }
+//                    else {
+//                        ko_state_middle_idx = ko_middle_state[ko_state_middle_idx * 3 + idx];
+//                        newHangulChar = getJungsungCode(ko_state_middle_idx);
+//                        sendSejongKey(newHangulChar, HCURSOR_UPDATE);
+//                    }
+//                    break;
+//                case KO_S_1000:
+//                    ko_state_middle_idx = ko_middle_state[ko_state_middle_idx * 3 + idx];
+//
+//                    if (ko_state_middle_idx > 2) {
+//                        cho_idx = h_chosung_idx[chosung_code[ko_state_first_idx - 1]];
+//                        jung_idx = (char)(ko_state_middle_idx - 3);
+//                        newHangulChar = (char)(0xAC00 + ((cho_idx * 21 * 28) + (jung_idx * 28)));
+//                        sendSejongKey(newHangulChar, HCURSOR_UPDATE);
+//                    }
+//                    else {
+//                        newHangulChar = getJungsungCode(ko_state_middle_idx);
+//                        sendSejongKey(newHangulChar, HCURSOR_APPEND);
+//                        // must be implemented.
+//                    }
+//                    ko_state_idx = KO_S_1100;
+//                    break;
+//                case KO_S_1100:
+//                    if (ko_middle_state[ko_state_middle_idx * 3 + idx] == 0) {
+//                        ko_state_first_idx = 0;
+//                        ko_state_middle_idx = 0;
+//                        ko_state_middle_idx = ko_middle_state[ko_state_middle_idx * 3 + idx];
+//                        newHangulChar = getJungsungCode(ko_state_middle_idx);
+//                        sendSejongKey(newHangulChar, HCURSOR_ADD);
+//                        ko_state_idx = KO_S_0100;
+//                    }
+//                    else {
+//                        ko_state_middle_idx = ko_middle_state[ko_state_middle_idx * 3 + idx];
+//                        if (ko_state_middle_idx > 2) {
+//                            cho_idx = h_chosung_idx[chosung_code[ko_state_first_idx - 1]];
+//                            jung_idx = (char)(ko_state_middle_idx - 3);
+//                            newHangulChar = (char)(0xAC00 + ((cho_idx * 21 * 28) + (jung_idx * 28)));
+//                            sendSejongKey(newHangulChar, HCURSOR_UPDATE);
+//                            sendSejongKey((char)0,HCURSOR_DELETE_LAST);
+//                        }
+//                        else {
+//                            newHangulChar = getJungsungCode(ko_state_middle_idx);
+//                            sendSejongKey(newHangulChar, HCURSOR_UPDATE_LAST);
+//                        }
+//                    }
+//
+//                    break;
+//                case KO_S_1110:
+//                    if (ko_jong_m_split[(ko_state_last_idx - 1) * 2] > 0) {
+//                        // update jongsong
+//                        cho_idx = h_chosung_idx[chosung_code[ko_state_first_idx - 1]];
+//                        jung_idx = (char)(ko_state_middle_idx - 3);
+//                        jong_idx = h_jongsung_idx[jongsung_code[ko_jong_m_split[(ko_state_last_idx - 1) * 2]]];
+//                        newHangulChar = (char)(0xAC00 + ((cho_idx * 21 * 28) + (jung_idx * 28) + jong_idx));
+//                        sendSejongKey(newHangulChar, HCURSOR_UPDATE);
+//
+//                    }
+//                    else {
+//                        cho_idx = h_chosung_idx[chosung_code[ko_state_first_idx - 1]];
+//                        jung_idx = (char)(ko_state_middle_idx - 3);
+//                        newHangulChar = (char)(0xAC00 + ((cho_idx * 21 * 28) + (jung_idx * 28)));
+//                        sendSejongKey(newHangulChar, HCURSOR_UPDATE);
+//                    }
+//
+//                    ko_state_first_idx
+//                            = ko_jong_m_split[(ko_state_last_idx - 1) * 2 + 1];
+//                    ko_state_middle_idx = 0;
+//                    ko_state_middle_idx = ko_middle_state[ko_state_middle_idx * 3 + idx];
+//
+//                    if (ko_state_middle_idx > 2) {
+//                        cho_idx = h_chosung_idx[chosung_code[ko_state_first_idx - 1]];
+//                        jung_idx = (char)(ko_state_middle_idx - 3);
+//                        newHangulChar = (char)(0xAC00 + ((cho_idx * 21 * 28) + (jung_idx * 28)));
+//                        sendSejongKey(newHangulChar, HCURSOR_ADD);
+//                        ko_state_idx = KO_S_1100;
+//                    }
+//                    else {
+//                        newHangulChar = (char)(0x3131 + chosung_code[ko_state_first_idx - 1]);
+//                        sendSejongKey(newHangulChar, HCURSOR_ADD);
+//                        newHangulChar = getJungsungCode(ko_state_middle_idx);
+//                        sendSejongKey(newHangulChar, HCURSOR_APPEND);
+//                        // must be implemented.
+//                    }
+//
+//                    ko_state_last_idx = 0;
+//                    ko_state_idx = KO_S_1100;
+//                    break;
+//                case KO_S_1111:
+//                    if (ko_state_last_idx >= 28) {
+//                        ko_state_last_idx = jongsung_28idx[ko_state_last_idx - 28];
+//                    }
+//
+//                    ko_state_first_idx = ko_state_next_idx;
+//                    ko_state_middle_idx = 0;
+//                    ko_state_middle_idx = ko_middle_state[ko_state_middle_idx * 3 + idx];
+//
+//                    sendSejongKey((char)0,HCURSOR_DELETE_LAST);
+//
+//                    if (ko_state_middle_idx > 2) {
+//                        cho_idx = h_chosung_idx[chosung_code[ko_state_first_idx - 1]];
+//                        jung_idx = (char)(ko_state_middle_idx - 3);
+//                        newHangulChar = (char)(0xAC00 + ((cho_idx * 21 * 28) + (jung_idx * 28)));
+//                        sendSejongKey(newHangulChar, HCURSOR_ADD);
+//                        ko_state_idx = KO_S_1100;
+//                    }
+//                    else {
+//                        newHangulChar = (char)(0x3131 + chosung_code[ko_state_first_idx - 1]);
+//                        sendSejongKey(newHangulChar, HCURSOR_ADD);
+//                        newHangulChar = getJungsungCode(ko_state_middle_idx);
+//                        sendSejongKey(newHangulChar, HCURSOR_APPEND);
+//                    }
+//
+//                    ko_state_last_idx = 0;
+//                    ko_state_next_idx = 0;
+//                    ko_state_idx = KO_S_1100;
+//                    break;
+//
+//            }
+//        }
+//
+//        prev_key = key;
+//    }
 
 
     private void handleHangul(int primaryCode, int[] keyCodes) {
@@ -2339,10 +2469,12 @@ public class SoftKeyboard extends InputMethodService
         if (isAlphabet(primaryCode) && mPredictionOn) {
             mComposing.append((char) primaryCode);
             getCurrentInputConnection().setComposingText(mComposing, 1);
+            //isTextUpdate=true;
             updateShiftKeyState(getCurrentInputEditorInfo());
             updateCandidates();
         } else {
             sendKeyChar((char)primaryCode);
+            //isTextUpdate = true;
         	/*
             getCurrentInputConnection().commitText(
                     String.valueOf((char) primaryCode), 1);
@@ -2552,8 +2684,11 @@ public class SoftKeyboard extends InputMethodService
                         //자동 띄어쓰기 일 경우
                         if(responseType.getString(i).equals("spacing"))
                         {
+                            //오타 단어 및 수정리스트 삭제
+                            cBtnList.clear();
                             spacingData = obj.getString("spacing");
                             ic.finishComposingText();
+                            //isCommitted = true;
                             ic.deleteSurroundingText(MAX_TEXT,MAX_TEXT);
                             ic.commitText(spacingData,1);
                         }
@@ -2613,38 +2748,6 @@ public class SoftKeyboard extends InputMethodService
         }
     }
 
-    //수정 버튼에 관한 정보가 담긴 클래스
-    private class correctionButtonInform
-    {
-        private int startPos, finishPos;
-        private String oldWord;
-        private String[] correctionWord;
-
-        correctionButtonInform(int startPos, int finishPos, String oldWord, String[] correctionWord)
-        {
-            this.startPos = startPos;
-            this.finishPos = finishPos;
-            this.oldWord = oldWord;
-            this.correctionWord = correctionWord;
-        }
-
-        public int getStartPos() {
-            return startPos;
-        }
-
-        public int getFinishPos(){
-            return finishPos;
-        }
-
-        public String getOldWord(){
-            return  oldWord;
-        }
-
-        public String[] getCorrectionWord(){
-            return correctionWord;
-        }
-    }
-
     //tcp 연결 및 통신 시작
     private void TcpOpen(TcpClient tcp){
         if(!tcp.getIsRunning()) {
@@ -2663,5 +2766,87 @@ public class SoftKeyboard extends InputMethodService
     private void TcpClose(TcpClient tcp){
         tcp.setRunningState(false);
         tcp.socketClose();
+    }
+
+    private void updateCandidateWord(int cursor)
+    {
+        InputConnection ic = getCurrentInputConnection();
+        candidateWordPosArray[0] = candidateWordPosArray[1] = cursor;
+        //자동완성 단어 추적
+        int beforeWordLen, nowWordLen;
+        candidateOldWord = "";
+        beforeWordLen=0;
+        nowWordLen = 0;
+        String nowWord, beforeWord="";
+        //커서 전 단어
+        for(int i=1;;i++)
+        {
+            if(ic.getTextBeforeCursor(i,0)==null)
+                break;
+
+            Log.d("completeBtLoop",String.valueOf(i));
+            nowWord = ic.getTextBeforeCursor(i,0).toString();
+            nowWordLen = nowWord.length();
+            Log.d("completeBtWord",nowWord);
+            Log.d("completeBtLen",String.valueOf(nowWordLen) + "," + String.valueOf(beforeWordLen));
+//            Log.d("completeBtIndex", String.valueOf(nowWord.charAt(0)));
+            if(nowWordLen==beforeWordLen || (nowWord.length() > 0 && isWordSeparator(nowWord.charAt(0))))
+            {
+                Log.d("completeBt",String.valueOf(i));
+                candidateWordPosArray[0] = cursor - i + 1;
+                if(i>1) {
+                    candidateOldWord += beforeWord;
+                }
+
+                break;
+            }
+            beforeWord = nowWord;
+            beforeWordLen = nowWordLen;
+        }
+        //커서 후 단어
+        beforeWordLen=0;
+        for(int i=1;;i++)
+        {
+            if(ic.getTextBeforeCursor(i,0)==null)
+                break;
+
+            nowWord = ic.getTextAfterCursor(i,0).toString();
+            nowWordLen = nowWord.length();
+            if(nowWordLen==beforeWordLen || (nowWord.length() > 0 && isWordSeparator(nowWord.charAt(nowWord.length()-1))))
+            {
+                Log.d("completeBt",String.valueOf(i));
+                candidateWordPosArray[1] = cursor + i - 1;
+                if(i>1) {
+                    candidateOldWord += beforeWord;
+                }
+
+                break;
+            }
+            beforeWord = nowWord;
+            beforeWordLen = nowWordLen;
+        }
+    }
+
+    private void updateCandidateComposing(){
+        candidateOldWord = mComposing.toString();
+    }
+
+    private void setText(int start, int len, String newWord)
+    {
+        InputConnection ic = getCurrentInputConnection();
+//        if (mComposing.length() > 0) {
+//            commitTyped(getCurrentInputConnection());
+//        }
+        clearHangul();
+        ic.setSelection(start,start);
+        Log.d(String.valueOf(start),String.valueOf(len));
+        ic.deleteSurroundingText(0,len);
+        ic.commitText(newWord,1);
+    }
+
+    private void updateAfterCBtnList(int index, int subLength)
+    {
+        for(int i = index+1 ; i<cBtnList.size(); i++)
+            cBtnList.get(i).addPos(subLength);
     }
 }
