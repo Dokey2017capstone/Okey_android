@@ -1,0 +1,22 @@
+<Keyboard xmlns:android="http://schemas.android.com/apk/res/android"
+    android:keyWidth="10%p"
+    android:horizontalGap="0px"
+    android:verticalGap="0px"
+    android:keyHeight="@dimen/key_height"
+    >
+    <Row>
+        <Key android:codes="-9" android:keyLabel="AutoCorrectionUpdate" android:keyEdgeFlags="left"
+            android:isSticky="true" android:keyWidth="100%p"/>
+    </Row>
+    <Row>
+        <Key android:codes="-10" android:keyLabel="AutoSpacingUpdate" android:keyEdgeFlags="left"
+            android:isSticky="true" android:keyWidth="100%p"/>
+    </Row>
+    <Row>
+    </Row>
+    <Row>
+    </Row>
+    <Row>
+        <Key android:codes="-8" android:keyLabel="복귀" android:keyEdgeFlags="left" android:keyWidth="100%p" />
+    </Row>
+</Keyboard>

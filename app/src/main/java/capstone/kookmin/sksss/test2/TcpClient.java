@@ -26,7 +26,7 @@ public class TcpClient implements Runnable {
     private int port;
     private BufferedReader networkReader;
     private BufferedWriter networkWriter;
-    String dataFromServer;
+    String dataFromServer, JsonMessage;
     private MessegeHandler mHandler;
     private boolean isRunning = false;
 
@@ -34,13 +34,18 @@ public class TcpClient implements Runnable {
 
     //서버에서 메시지 수신을 기다리는 스레드
     public void run(){
+        JsonMessage = "";
         //서버에서 메시지가 올 경우
         while(isRunning) {/////////////////
                 if (socket == null || !socket.isConnected())
                     this.openSocket();
                 try {
                     if (networkReader != null) {
-                        dataFromServer = networkReader.readLine();
+                        while ((dataFromServer = networkReader.readLine())!=null) {
+                            JsonMessage += dataFromServer;
+                            Log.d("Is","Loop?");
+                        }
+//                        dataFromServer = networkReader.readLine();
 //                        String temp = null;
 //                        temp = networkReader.readLine();
 //                        while (temp != null && !temp.equals("")) {
@@ -49,12 +54,13 @@ public class TcpClient implements Runnable {
 //                            temp = networkReader.readLine();
 //                            Log.d("hi",temp);
 //                        }
-                        if (dataFromServer != null) {
-                            Message msg = mHandler.obtainMessage(MSG_REQUEST_RECEIVE, dataFromServer);
-                            Log.d("Get from server", dataFromServer);
+                        if (JsonMessage != null && !JsonMessage.equals("")) {
+                            Message msg = mHandler.obtainMessage(MSG_REQUEST_RECEIVE, JsonMessage);
+                            Log.d("Get from server", JsonMessage);
                             mHandler.sendMessage(msg);
                             //Toast.makeText(context,"Receive Data : " + msg.toString(), Toast.LENGTH_LONG).show();
                             dataFromServer = null;
+                            JsonMessage = "";
                         }
                     }
                 } catch (IOException e) {
