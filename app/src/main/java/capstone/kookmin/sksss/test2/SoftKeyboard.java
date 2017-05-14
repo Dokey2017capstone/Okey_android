@@ -28,8 +28,10 @@ import android.inputmethodservice.InputMethodService;
 import android.inputmethodservice.Keyboard;
 import android.inputmethodservice.KeyboardView;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Message;
+import android.support.annotation.RequiresApi;
 import android.support.v7.view.menu.MenuView;
 import android.text.method.MetaKeyKeyListener;
 import android.util.Log;
@@ -176,7 +178,10 @@ public class SoftKeyboard extends InputMethodService
         b[1] = "zz";
 
         cBtnList.add(new correctionButtonInform(1,3,"나는",a));
+        cBtnList.add(new correctionButtonInform(2,4,"나는",a));
+        cBtnList.add(new correctionButtonInform(3,5,"나는",a));
         cBtnList.add(new correctionButtonInform(3,5,"크크",b));
+        cBtnList.add(new correctionButtonInform(4,6,"크크",b));
         //
         mCurrentKeyboard = mQwertyKeyboard;
         //tcp.start();
@@ -243,6 +248,7 @@ public class SoftKeyboard extends InputMethodService
     //자동완성/오타수정 뷰 관련 클릭 리스너
     Button.OnClickListener mOnClickListner = new View.OnClickListener(){
 
+        @RequiresApi(api = Build.VERSION_CODES.M)
         @Override
         public void onClick(View v) {
             Log.d("aa","bb");
@@ -322,7 +328,7 @@ public class SoftKeyboard extends InputMethodService
                             cPopup.getMenu().add(cBtnList.get(popUpPosition).getCorrectionWord()[i]);
                         }
                         //수정 취소 버튼(추후 이미지 수정)-*-
-                        cPopup.getMenu().add(1,1,1,"수정 취소");
+                        cPopup.getMenu().add(1,1,1,cBtnList.get(popUpPosition).getOldWord());
                     }
                     if(cPopup.getMenu().size()>0)
                         cPopup.show();
@@ -387,6 +393,7 @@ public class SoftKeyboard extends InputMethodService
                     Log.d("Not", "equal");
                     int endOfText = ic.getExtractedText(new ExtractedTextRequest(), 0).text.length();
                     ic.setSelection(endOfText, endOfText);
+                    makeCorrectFailToast();//-*-
                 }
                 cBtnList.remove(popUpPosition);
             }
@@ -401,9 +408,14 @@ public class SoftKeyboard extends InputMethodService
             /////////// 수정 이벤트
            // Log.d("onUpdateSelection :","onUpdateSelection :");
 //            imm.showSoftInput(mInputView,InputMethodManager.SHOW_IMPLICIT);
+            renewCorrectionButtonsAsCbtnList();
             return true;
         }
     };
+
+    private void makeCorrectFailToast(){
+        Toast.makeText(this.getApplicationContext() , "수정 실패 : 이미 텍스트가 바뀌었습니다.", Toast.LENGTH_SHORT).show();
+    }
 
     PopupMenu.OnDismissListener mOnDismissListener = new PopupMenu.OnDismissListener(){
 
@@ -1160,6 +1172,16 @@ public class SoftKeyboard extends InputMethodService
                 handleCharacter(primaryCode, keyCodes);
             }
             // Hangul End Code
+            //자동 오타수정 및 띄어쓰기
+            //서버 데이터 전송 과부하를 막기 위한 delay 삽입
+            long newSendTime = System.currentTimeMillis();
+            if(newSendTime-oldSendTime>NETWORK_DELAY) {
+                if (isAutoCorrect)
+                    sendCorrectionJson();
+                if (isAutoSpacing)
+                    sendSpacingJson();
+                oldSendTime = newSendTime;
+            }
         }
         if(mComposing.length()>0)
             updateCandidateComposing();
@@ -2818,14 +2840,7 @@ public class SoftKeyboard extends InputMethodService
                             }
 
                             //오타 수정 버튼 텍스트 갱신
-                            clearButtonText(correctionButton);
-                            for(int j = 0; j < cBtnList.size(); j++)
-                            {
-                                if(j>=correctionButton.length)
-                                    break;
-
-                                correctionButton[j].setText(cBtnList.get(j).getOldWord());
-                            }
+                            renewCorrectionButtonsAsCbtnList();
                         }
                     }
                 } catch (JSONException e) {
@@ -2835,7 +2850,17 @@ public class SoftKeyboard extends InputMethodService
         }
     }
 
-    private void clearButtonText(Button[] btn){
+    private void renewCorrectionButtonsAsCbtnList(){
+        clearButtonListText(correctionButton);
+        for(int j = 0; j < cBtnList.size(); j++)
+        {
+            if(j>=correctionButton.length)
+                break;
+
+            correctionButton[j].setText(cBtnList.get(j).getOldWord());
+        }
+    }
+    private void clearButtonListText(Button[] btn){
         for(int i = 0; i < btn.length; i++)
         {
             btn[i].setText("");

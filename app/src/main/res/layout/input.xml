@@ -23,6 +23,10 @@
         android:id="@+id/keyboard"
         android:layout_alignParentBottom="true"
         android:layout_width="fill_parent"
-        android:layout_height="wrap_content">
+        android:layout_height="wrap_content"
+        android:keyBackground="@drawable/key_bg"
+        android:keyTextColor="@color/key_color"
+        android:background="@color/keyboard_background"
+        android:shadowColor="#C7C7C7">
 
 </capstone.kookmin.sksss.test2.LatinKeyboardView>

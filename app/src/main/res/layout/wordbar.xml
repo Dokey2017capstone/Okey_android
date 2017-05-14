@@ -4,13 +4,14 @@
     android:id="@+id/wordLayout"
     android:layout_height="wrap_content"
     android:orientation="horizontal"
-    android:background="@color/candidate_background">
+    android:background="@color/key_background">
 
     <Button
         android:id="@+id/word1"
         android:layout_width="0px"
         android:layout_weight="3"
         android:layout_height="150px"
+        android:background="@drawable/button_bg"
         android:text = "하이"/>
 
     <Button
@@ -18,6 +19,7 @@
         android:layout_width="0px"
         android:layout_weight="3"
         android:layout_height="150px"
+        android:background="@drawable/button_bg"
         android:text = "하이"/>
 
     <Button
@@ -25,6 +27,7 @@
         android:layout_width="0px"
         android:layout_weight="3"
         android:layout_height="150px"
+        android:background="@drawable/button_bg"
         android:text = "하이"/>
 
     <Button

@@ -4,7 +4,7 @@
     android:id="@+id/wordLayout"
     android:layout_height="wrap_content"
     android:orientation="horizontal"
-    android:background="@color/candidate_normal">
+    android:background="@color/key_background">
 
     <Button
         android:id="@+id/renew"
@@ -19,6 +19,7 @@
         android:layout_width="0px"
         android:layout_weight="3"
         android:layout_height="150px"
+        android:background="@drawable/correctbutton_bg"
         android:text = ""/>
 
     <Button
@@ -26,6 +27,7 @@
         android:layout_width="0px"
         android:layout_weight="3"
         android:layout_height="150px"
+        android:background="@drawable/correctbutton_bg"
         android:text = ""/>
 
     <Button
@@ -33,6 +35,7 @@
         android:layout_width="0px"
         android:layout_weight="3"
         android:layout_height="150px"
+        android:background="@drawable/correctbutton_bg"
         android:text = ""/>
 
     <Button
