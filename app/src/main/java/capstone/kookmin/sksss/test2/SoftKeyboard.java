@@ -24,6 +24,8 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Rect;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
 import android.inputmethodservice.InputMethodService;
 import android.inputmethodservice.Keyboard;
 import android.inputmethodservice.KeyboardView;
@@ -46,14 +48,17 @@ import android.view.WindowManager;
 import android.view.inputmethod.CompletionInfo;
 import android.view.inputmethod.CorrectionInfo;
 import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.ExtractedText;
 import android.view.inputmethod.ExtractedTextRequest;
 import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputMethod;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.PopupMenu;
+import android.widget.PopupWindow;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -237,7 +242,7 @@ public class SoftKeyboard extends InputMethodService
      * be generated, like {@link #onCreateInputView}.
      */
     //자동완성, 오타수정 뷰 관련 변수
-    View wordBar, correctionBar;
+    View wordBar, correctionBar, correctlayout;
     LayoutInflater li;
     Button button1;
     Button button2;
@@ -253,7 +258,8 @@ public class SoftKeyboard extends InputMethodService
         public void onClick(View v) {
             Log.d("aa","bb");
             Button bt;
-            InputConnection ic;
+            InputConnection ic = getCurrentInputConnection();
+            Log.d("a"+ic.getExtractedText(new ExtractedTextRequest(),0).text,"b");
             Keyboard current = mInputView.getKeyboard();
             switch (v.getId()){
                     ///////////
@@ -308,6 +314,7 @@ public class SoftKeyboard extends InputMethodService
                     break;
                 case R.id.cword1:case R.id.cword2:case R.id.cword3:
                     bt = (Button)v;
+                    /* 이 부분은 popupmenu
                     PopupMenu cPopup = new PopupMenu(getApplicationContext(), bt);
                     cPopup.getMenuInflater().inflate(R.menu.correctionpopup, cPopup.getMenu());
                     cPopup.setOnMenuItemClickListener(mOnMenuItemClickListener);
@@ -332,6 +339,16 @@ public class SoftKeyboard extends InputMethodService
                     }
                     if(cPopup.getMenu().size()>0)
                         cPopup.show();
+                        popupmenu 끝*/
+                    //popupwindow
+                    if(v.getId() == R.id.cword1)
+                        popUpPosition = 0;
+                    else if(v.getId() == R.id.cword2)
+                        popUpPosition = 1;
+                    else
+                        popUpPosition = 2;
+                    initiatePopupWindow(popUpPosition,bt);
+                    //popupwindow 끝
                     break;
                 //오타수정 바 혹은 갱신 버튼 클릭시
                 case R.id.changeBt:
@@ -354,6 +371,95 @@ public class SoftKeyboard extends InputMethodService
 
 //                isOkUpdateSelection = false;
             }
+        }
+    };
+
+    //-*- 팝업 윈도우 시작
+    private PopupWindow mDropdown;
+    TextView correctlist[] = new TextView[3];
+    private PopupWindow initiatePopupWindow(int pos, Button btn){
+        correctlayout = li.inflate(R.layout.correctionpopup, null);
+        boolean isShow = false;
+        correctlist[0] = (TextView)correctlayout.findViewById(R.id.cPopUp1);
+        correctlist[1] = (TextView)correctlayout.findViewById(R.id.cPopUp2);
+        correctlist[2] = (TextView)correctlayout.findViewById(R.id.cPopUp3);
+
+        correctlayout.measure(View.MeasureSpec.UNSPECIFIED,
+                View.MeasureSpec.UNSPECIFIED);
+        mDropdown = new PopupWindow(correctlayout, FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT);
+        mDropdown.setOutsideTouchable(true);
+        mDropdown.setBackgroundDrawable(new BitmapDrawable());
+        Drawable background = getResources().getDrawable(android.R.drawable.editbox_dropdown_dark_frame);
+        mDropdown.setBackgroundDrawable(background);
+        for(int i=0; i<3; i++)
+            correctlist[i].setOnClickListener(mOnPopupClickListener);
+        for(int i=0; i<3; i++)
+            correctlist[i].setText("");
+        if(cBtnList.size()>pos)
+        {
+            //수정단어를 채움(2개까지만)
+            for(int i=0; i<cBtnList.get(pos).getCorrectionWord().length && i<2; i++)
+            {
+                correctlist[i].setText(cBtnList.get(pos).getCorrectionWord()[i]);
+                //cPopup.getMenu().add(cBtnList.get(pos).getCorrectionWord()[i]);
+            }
+            //수정 취소 버튼(추후 이미지 수정)-*-
+            correctlist[2].setText(cBtnList.get(pos).getOldWord());//////////////////////////////////////
+//            cPopup.getMenu().add(1,1,1,cBtnList.get(pos).getOldWord());
+            isShow=true;
+        }
+        if(isShow)
+            mDropdown.showAsDropDown(btn, 3, 3);
+        return mDropdown;
+    }
+    //-*-팝업 윈도우 끝
+    //popupwindow용 오타 수정 리스너
+    TextView.OnClickListener mOnPopupClickListener = new View.OnClickListener() {
+        @Override
+        public void onClick(View v) {
+            int correctPos, correctLength;
+            mDropdown.dismiss();
+            Log.d("OK?","OKK?");
+            InputConnection ic = getCurrentInputConnection();
+            //수정 취소 버튼이라면..
+            TextView tv = (TextView) v;
+            if(v.getId() == R.id.cPopUp3)
+            {
+                cBtnList.remove(popUpPosition);
+            }
+            //수정할 단어를 클릭했다면..
+            else {
+                Log.d("a"+ic.getExtractedText(new ExtractedTextRequest(),0).text,"a");
+                //수정 위치와 수정될 단어의 길이를 구함
+                correctPos = cBtnList.get(popUpPosition).getStartPos() + cBtnList.get(popUpPosition).getOldWord().length();
+                correctLength = tv.getText().length() - cBtnList.get(popUpPosition).getOldWord().length();
+                //
+//            ic.setSelection(cBtnList.get(popUpPosition).getStartPos(),
+//                    cBtnList.get(popUpPosition).getStartPos() + cBtnList.get(popUpPosition).getOldWord().length());
+//            if(cBtnList.get(popUpPosition).getOldWord().equals(ic.getSelectedText(0))) {
+                if (mComposing.length() > 0) {
+                    commitTyped(ic);
+                    clearHangul();
+                }
+                ic.setSelection(cBtnList.get(popUpPosition).getStartPos(),
+                        cBtnList.get(popUpPosition).getStartPos() + cBtnList.get(popUpPosition).getOldWord().length());
+//            Log.d("compare",ic.getSelectedText(0).toString() +","+cBtnList.get(popUpPosition).getOldWord());
+                if (ic.getSelectedText(0) != null && ic.getSelectedText(0).equals(cBtnList.get(popUpPosition).getOldWord())) {
+                    setText(cBtnList.get(popUpPosition).getStartPos(), cBtnList.get(popUpPosition).getOldWord().length(), tv.getText().toString());
+                    updateAfterCBtnList(popUpPosition, correctLength);
+                } else {
+                    Log.d("Not", "equal");
+                    ExtractedText nowText = ic.getExtractedText(new ExtractedTextRequest(), 0);
+                    if(nowText!=null) {
+                        int endOfText = nowText.text.length();
+                        ic.setSelection(endOfText, endOfText);
+                    }
+                    makeCorrectFailToast();//-*-
+                }
+                cBtnList.remove(popUpPosition);
+            }
+            renewCorrectionButtonsAsCbtnList();
         }
     };
 
