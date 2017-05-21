@@ -9,32 +9,29 @@
     <Button
         android:id="@+id/word1"
         android:layout_width="0px"
-        android:layout_weight="3"
-        android:layout_height="150px"
-        android:background="@drawable/button_bg"
-        android:text = "하이"/>
+        android:layout_weight="3.3"
+        android:layout_height="35dp"
+        android:background="@drawable/button_bg"/>
 
     <Button
         android:id="@+id/word2"
         android:layout_width="0px"
-        android:layout_weight="3"
-        android:layout_height="150px"
-        android:background="@drawable/button_bg"
-        android:text = "하이"/>
+        android:layout_weight="3.3"
+        android:layout_height="35dp"
+        android:background="@drawable/button_bg"/>
 
     <Button
         android:id="@+id/word3"
         android:layout_width="0px"
-        android:layout_weight="3"
-        android:layout_height="150px"
-        android:background="@drawable/button_bg"
-        android:text = "하이"/>
+        android:layout_weight="3.3"
+        android:layout_height="35dp"
+        android:background="@drawable/button_bg"/>
 
     <Button
         android:id="@+id/changeBt"
         android:layout_width="0px"
         android:layout_weight="1"
-        android:layout_height="150px"
-        android:text="교체" />
+        android:layout_height="35dp"
+        android:background="@drawable/set_correct_bar"/>
 
 </LinearLayout>

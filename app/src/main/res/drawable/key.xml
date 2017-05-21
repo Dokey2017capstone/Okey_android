@@ -2,4 +2,10 @@
     <stroke android:width="4dp" android:color="@color/keyboard_background" />
     <solid android:color="@color/key_background"/>
     <corners android:radius="5dip" />
+    <gradient
+        android:startColor="@color/key_background"
+        android:centerColor="@color/key_background"
+        android:endColor="#8D8D8D"
+        android:angle="270"
+        android:centerY="0.94" />
 </shape>

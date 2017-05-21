@@ -7,9 +7,9 @@
     <color name="candidate_recommended">#FFE35900</color>
     <color name="candidate_other">#ff808080</color>
     <color name="candidate_background">#bbffffff</color>
-    <color name="keyboard_background">#CECECE</color>
-    <color name="key_background">#C7C7C7</color>
+    <color name="keyboard_background">#d9ddce</color>
+    <color name="key_background">#d6d9ce</color>
     <color name="key_color">#000000</color>
     <color name="candidate_button_color">#9F9F9F</color>
-    <color name="correct_button_color">#000000</color>
+    <color name="correct_var">#cbd3b8</color>
 </resources>

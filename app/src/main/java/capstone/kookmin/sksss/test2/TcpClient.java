@@ -38,11 +38,14 @@ public class TcpClient implements Runnable {
         //서버에서 메시지가 올 경우
         while(isRunning) {/////////////////
                 if (socket == null || !socket.isConnected())
+                    Log.d("!!!!!!!!!!!!!!","!!!!!!!!!!!!!!!!!");
                     this.openSocket();
                 try {
                     if (networkReader != null) {
-                        while ((dataFromServer = networkReader.readLine())!=null) {
+                        Log.d("IN","netwirkReader != null");
+                        while (((dataFromServer = networkReader.readLine())!=null) && (!dataFromServer.equals("\f"))) {
                             JsonMessage += dataFromServer;
+                            dataFromServer = null;
                             Log.d("Is","Loop?");
                         }
 //                        dataFromServer = networkReader.readLine();
@@ -99,6 +102,7 @@ public class TcpClient implements Runnable {
             if(socket!=null)
                 socketClose();
             try {
+                Log.d("!?!?!?!??!?",ip + "," + port);
                 socket = new Socket(ip, port);
                 networkWriter = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
                 networkReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
