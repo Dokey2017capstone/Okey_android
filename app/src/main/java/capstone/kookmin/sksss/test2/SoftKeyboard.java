@@ -75,11 +75,15 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import android.text.Editable;
 
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.w3c.dom.Text;
 
 
 /**
@@ -380,6 +384,7 @@ public class SoftKeyboard extends InputMethodService
     };
 
     private PopupWindow mDropdown;
+    private String focusOldWordbyPopup; // old word 식별 (mOnPopclick2를 위함)
     TextView correctlist[] = new TextView[2];
     private PopupWindow initiatePopupWindow(int pos, Button btn){
         correctlayout = li.inflate(R.layout.correctionpopup, null);
@@ -398,7 +403,7 @@ public class SoftKeyboard extends InputMethodService
         mDropdown.setBackgroundDrawable(background);
         //correctlist[2].setBackground();
         for(int i=0; i<2; i++)
-            correctlist[i].setOnClickListener(mOnPopupClickListener);
+            correctlist[i].setOnClickListener(mOnPopupClickListener2);//-*-
         for(int i=0; i<2; i++)
             correctlist[i].setText("");
         if(cBtnList.size()>pos)
@@ -416,6 +421,7 @@ public class SoftKeyboard extends InputMethodService
         }
         if(isShow)
             mDropdown.showAsDropDown(btn, 3, 3);
+        focusOldWordbyPopup = btn.getText().toString(); //Old word 식별
         return mDropdown;
     }
     //popupwindow용 오타 수정 리스너
@@ -461,6 +467,58 @@ public class SoftKeyboard extends InputMethodService
                     }
                     makeCorrectFailToast();//-*-
                 }
+                cBtnList.remove(popUpPosition);
+            }
+            renewCorrectionButtonsAsCbtnList();
+        }
+    };
+
+    //-*- 오타 수정 ver.2 : 스트링을 비교하면서 오타를 수정하는 버전(문맥 X 문자만)
+    TextView.OnClickListener mOnPopupClickListener2 = new View.OnClickListener() {
+        @Override
+        public void onClick(View v) {
+            int correctPos, correctLength;
+            mDropdown.dismiss();
+            Log.d("OK?","OKK?");
+            InputConnection ic = getCurrentInputConnection();
+            //수정 취소 버튼이라면..
+            TextView tv = (TextView) v;
+            if(v.getId() == R.id.cPopUp3)
+            {
+                cBtnList.remove(popUpPosition);
+            }
+            //수정할 단어를 클릭했다면..
+            else {
+                Log.d("a"+ic.getExtractedText(new ExtractedTextRequest(),0).text,"a");
+                //수정 위치와 수정될 단어의 길이를 구함
+                String text =  ic.getExtractedText(new ExtractedTextRequest(),0).text.toString();
+                if(text != null && !text.equals(""))
+                {
+                    String correctText = tv.getText().toString();
+                    int textLen = text.length();
+                    int correctTextLen = correctText.length();
+                    Pattern word = Pattern.compile(focusOldWordbyPopup);
+                    Matcher matchString = word.matcher(text);
+
+                    Log.d(focusOldWordbyPopup, text);
+                    if(matchString.find())
+                    {
+                        if (mComposing.length() > 0) {
+                            commitTyped(ic);
+                            clearHangul();
+                        }
+
+                        Log.d("startPos : ", matchString.start() + "");
+                        setText(matchString.start(), correctTextLen, correctText);
+//                            updateAfterCBtnList(popUpPosition, correctLength);
+                    }
+                    else
+                        makeCorrectFailToast();
+
+                }
+                else
+                    makeCorrectFailToast();//-*-
+
                 cBtnList.remove(popUpPosition);
             }
             renewCorrectionButtonsAsCbtnList();
@@ -1156,7 +1214,7 @@ public class SoftKeyboard extends InputMethodService
                 oldSendTime = newSendTime;
             }
 
-            clearCorrectionBar();
+//            clearCorrectionBar(); //-*- 입력시 수정 bar 삭제 여부
         } else if (primaryCode == Keyboard.KEYCODE_DELETE) {
             Keyboard current = mInputView.getKeyboard();
             if (current == mHangulKeyboard || current == mHangulShiftedKeyboard ) {
@@ -1169,7 +1227,7 @@ public class SoftKeyboard extends InputMethodService
             else {
                 handleBackspace();
             }
-            clearCorrectionBar();
+//            clearCorrectionBar();//-*- 입력시 수정 bar 삭제 여부
         } else if (primaryCode == Keyboard.KEYCODE_SHIFT) {
             handleShift();
         } else if (primaryCode == Keyboard.KEYCODE_CANCEL) {
@@ -1295,7 +1353,7 @@ public class SoftKeyboard extends InputMethodService
                     sendSpacingJson();
                 oldSendTime = newSendTime;
             }
-            clearCorrectionBar();
+//            clearCorrectionBar();//-*- 입력시 수정 bar 삭제 여부
         }
         if(mComposing.length()>0)
             updateCandidateComposing();
@@ -2975,7 +3033,7 @@ public class SoftKeyboard extends InputMethodService
         }
     }
 
-    //-*-test
+    //-*-test(msg.obj -> msg(String))
     private void processJsonMessegeTest(String msg){
         JSONObject obj;
         JSONArray responseType;
