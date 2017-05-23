@@ -53,6 +53,7 @@ import android.view.inputmethod.ExtractedTextRequest;
 import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputMethod;
 import android.view.inputmethod.InputMethodManager;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
@@ -168,6 +169,11 @@ public class SoftKeyboard extends InputMethodService
     Thread t;
     private static int NETWORK_DELAY = 2000; //서버 데이터 전송에 과부하를 막기위한 네트워크 딜레이(자동 오타수정, 띄어쓰기 기능 수행시)
     private long oldSendTime;
+    //자동완성 및 DB 관련 -*-
+    ArrayAdapter<String> myAdapter;
+    DatabaseHandler databaseH;
+    String[] item = new String[]{"please Search.."};
+    //end -*-
 
     /**
      * Main initialization of the input method component.  Be sure to call
@@ -193,8 +199,64 @@ public class SoftKeyboard extends InputMethodService
 //        cBtnList.add(new correctionButtonInform(4,6,"크크",b));
         //
         mCurrentKeyboard = mQwertyKeyboard;
+
+        //DB Source -*-
+        try {
+            InputStreamReader inputreader = new InputStreamReader(this.getAssets().open("dic.csv"), "euc-kr");
+            BufferedReader buffereader = new BufferedReader(inputreader);
+            List<String> list = new ArrayList<String>();
+            String line;
+
+            do {
+                line = buffereader.readLine();
+                list.add(line);
+            } while(line!=null);
+
+            databaseH = new DatabaseHandler(this);
+
+            databaseH.insert(list);
+
+//            myAutoComplete = (CustomAutoCompleteView) findViewById(R.id.myautocomplete);
+//
+//            myAutoComplete
+//                    .addTextChangedListener(new CustomAutoCompleteTextChangedListener(
+//                            this));
+//
+//            myAdapter = new ArrayAdapter<String>(this,
+//                    android.R.layout.simple_dropdown_item_1line, item);
+//
+//            myAutoComplete.setAdapter(myAdapter);
+
+//			myAutoComplete.setTokenizer(new SpaceTokenizer());
+
+        } catch (NullPointerException e) {
+            e.printStackTrace();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        //DB Source end -*-
         //tcp.start();
     }
+
+    //-*-DB
+    public String[] getItemsFromDb(String searchTerm) {
+
+        List<MyObject> products = databaseH.read(searchTerm);
+
+        int rowCount = products.size();
+        String[] item = new String[rowCount];
+        int x = 0;
+
+        for (MyObject record : products) {
+
+            item[x] = record.objectName;
+            x++;
+        }
+
+        return item;
+    }
+    //-*-
 
     /**
      * This is the point where you can do all of your UI initialization.  It
@@ -597,19 +659,29 @@ public class SoftKeyboard extends InputMethodService
     //자동완성 버튼 갱신
     void setCandidateButton(String[] str)
     {
-        button1.setText(str[0]);
-        button2.setText(str[1]);
-        button3.setText(str[2]);
+        if(str.length > 0)
+            button1.setText(str[0]);
+        else
+            button1.setText("");
+        if(str.length > 1)
+            button2.setText(str[1]);
+        else
+            button2.setText("");
+        if(str.length > 2)
+            button3.setText(str[2]);
+        else
+            button3.setText("");
     }
 
     void updateCandidateButton()
     {
-        String[] a = new String[3];
-        a[0] = candidateOldWord;
-        a[1] = a[0];
-        a[2] = a[1];
-        Log.d("z","a"+a[0]+"z");
-        setCandidateButton(a);
+//        item = getItemsFromDb(candidateOldWord);
+//        String[] a = new String[3];
+//        a[0] = candidateOldWord;
+//        a[1] = a[0];
+//        a[2] = a[1];
+//        Log.d("z","a"+a[0]+"z");
+        setCandidateButton(getItemsFromDb(candidateOldWord));
     }
 
     //candidate 생성
@@ -1605,7 +1677,8 @@ public class SoftKeyboard extends InputMethodService
         }
         else if (hCursor == HCURSOR_UPDATE) {
             Log.i("Hangul", "HCURSOR_UPDATE");
-            mComposing.setCharAt(mComposing.length()-1, (char)newHangulChar);
+            if(mComposing.length()>0)
+                mComposing.setCharAt(mComposing.length()-1, (char)newHangulChar);
             getCurrentInputConnection().setComposingText(mComposing, 1);
             mHCursorState = HCURSOR_UPDATE;
             Log.d("length", mComposing.toString());
