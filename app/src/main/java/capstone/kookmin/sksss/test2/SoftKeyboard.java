@@ -2969,7 +2969,7 @@ public class SoftKeyboard extends InputMethodService
 //        textListSeparated.clear();
         correctionTextPosition.clear();
         //한글을 제외한 단어를 공백처리하기 위한 정규식
-        String splitWord = "[^ㄱ-힣]";
+        String splitWord = "[^ㄱ-힣]+";
 
         String rePlaceStr = text.replaceAll(splitWord," ");
         rePlaceStr = rePlaceStr.concat(" ");
@@ -3041,7 +3041,7 @@ public class SoftKeyboard extends InputMethodService
         String spacingData;
         JSONObject modifiedData;
 
-//-*-        Toast.makeText(this,"Receive Data : " + msg.obj.toString(), Toast.LENGTH_LONG).show();
+        Toast.makeText(this,"Receive Data : " + msg.obj.toString(), Toast.LENGTH_LONG).show();
         Log.d("Receive Data : ", msg.obj.toString());
         try {
             ic = getCurrentInputConnection();
@@ -3087,7 +3087,7 @@ public class SoftKeyboard extends InputMethodService
                             correctionWordTmp = new String[correctionList.length()-1];
                             while(index < correctionList.length())
                             {
-                                correctionWordTmp[index-1] = correctionList.getString(index);
+                                correctionWordTmp[index-1] = correctionList.getString(index++);
                             }
 
                             //오타 검사 단어와 오타 단어가 같을 경우 제외
