@@ -400,7 +400,6 @@ public class SoftKeyboard extends InputMethodService
                         {
                             cPopup.getMenu().add(cBtnList.get(popUpPosition).getCorrectionWord()[i]);
                         }
-                        //수정 취소 버튼(추후 이미지 수정)-*-
                         cPopup.getMenu().add(1,1,1,cBtnList.get(popUpPosition).getOldWord());
                     }
                     if(cPopup.getMenu().size()>0)
@@ -426,9 +425,9 @@ public class SoftKeyboard extends InputMethodService
                     //서버로 보낼 오타 수정 메시지 작성 및 송신
                     sendCorrectionJson();
                     //-*-test
-//                    Log.d("isTestGood?","???????????????????????");
-//                    String jsonTest = "{\"response\" : [\"modified\"], \"modified\" : {\"먹숩니다\" : [\"2\", \"먹습니다\"]}}";
-//                    processJsonMessegeTest(jsonTest);
+                    //Log.d("isTestGood?","???????????????????????");
+                    //String jsonTest = "{\"response\" : [\"spacing\"], \"spacing\" : \"나는 학교를 갑니다.\"}"; //"{\"response\" : [\"modified\"], \"modified\" : {\"정말루\" : [\"0\",\"정말로\"], \"하르\" : [\"2\",\"하루\"] }}";
+                    //processJsonMessegeTest(jsonTest);
                     //-*-testend
 //                    if(!tcp.getIsRunning())
 //                        TcpOpen(tcp);
@@ -557,7 +556,7 @@ public class SoftKeyboard extends InputMethodService
                 if(text != null && !text.equals(""))
                 {
                     String correctText = tv.getText().toString();
-                    int textLen = text.length();
+                    int textLen = focusOldWordbyPopup.length();
                     int correctTextLen = correctText.length();
                     Pattern word = Pattern.compile(focusOldWordbyPopup);
                     Matcher matchString = word.matcher(text);
@@ -571,7 +570,7 @@ public class SoftKeyboard extends InputMethodService
                         }
 
                         Log.d("startPos : ", matchString.start() + "");
-                        setText(matchString.start(), correctTextLen, correctText);
+                        setText(matchString.start(), textLen, correctText);
 //                            updateAfterCBtnList(popUpPosition, correctLength);
                     }
                     else
@@ -2904,6 +2903,10 @@ public class SoftKeyboard extends InputMethodService
 
     public void swipeUp() {
         sendSpacingJson();
+        //-*- test
+//        String jsonTest = "{\"response\" : [\"spacing\"], \"spacing\" : \"주말에 실컷 놀아야지\"}"; //"{\"response\" : [\"modified\"], \"modified\" : {\"정말루\" : [\"0\",\"정말로\"], \"하르\" : [\"2\",\"하루\"] }}";
+//        processJsonMessegeTest(jsonTest);
+        //-*-
 //        InputConnection ic = getCurrentInputConnection();
 //
 //        //서버로 보낼 오타 수정 메시지 작성 및 송신
@@ -2965,8 +2968,8 @@ public class SoftKeyboard extends InputMethodService
         boolean isContinueChar = false;
 //        textListSeparated.clear();
         correctionTextPosition.clear();
-        //문자열을 나눌 단어의 기준(정규식)(\n.,;:!?()[]{}<>")
-        String splitWord = "(\\u0020|\\.|\\,|\\;|\\:|\\!|\\?|\\n|\\(|\\)|\\[|\\]|\\{|\\}|\\<|\\>|\")";
+        //한글을 제외한 단어를 공백처리하기 위한 정규식
+        String splitWord = "[^ㄱ-힣]";
 
         String rePlaceStr = text.replaceAll(splitWord," ");
         rePlaceStr = rePlaceStr.concat(" ");
@@ -3038,11 +3041,12 @@ public class SoftKeyboard extends InputMethodService
         String spacingData;
         JSONObject modifiedData;
 
-        Toast.makeText(this,"Receive Data : " + msg.obj.toString(), Toast.LENGTH_LONG).show();
+//-*-        Toast.makeText(this,"Receive Data : " + msg.obj.toString(), Toast.LENGTH_LONG).show();
+        Log.d("Receive Data : ", msg.obj.toString());
         try {
             ic = getCurrentInputConnection();
             obj = new JSONObject((String) msg.obj);
-            //obj = new JSONObject("{\"response\" : [\"modified\"],\"modified\" : {\"나는\" : [\"0\",\"ㅋㅋ\"],\"김정민\" : [\"1\",\"ㅎㅎ\"]}}");
+//            obj = new JSONObject("{\"response\" : [\"modified\"],\"modified\" : {\"나는\" : [\"0\",\"ㅋㅋ\"],\"김정민\" : [\"1\",\"ㅎㅎ\"]}}");
             //Log.d("닿?","나?");
             responseType = (JSONArray) obj.getJSONArray("response");
             //responseType 별로 처리
@@ -3052,7 +3056,7 @@ public class SoftKeyboard extends InputMethodService
                 if(responseType.getString(i).equals("spacing"))
                 {
                     //오타 단어 및 수정리스트 삭제
-                    cBtnList.clear();
+                    //cBtnList.clear(); //mathcer를 사용 하므로
                     spacingData = obj.getString("spacing");
                     ic.finishComposingText();
                     //isCommitted = true;
@@ -3116,7 +3120,7 @@ public class SoftKeyboard extends InputMethodService
         JSONObject modifiedData;
 
         Log.d("value",msg);
-        Toast.makeText(this,"Receive Data : " + msg, Toast.LENGTH_LONG).show();
+//-*-        Toast.makeText(this,"Receive Data : " + msg, Toast.LENGTH_LONG).show();
         try {
             ic = getCurrentInputConnection();
             obj = new JSONObject((String) msg);
